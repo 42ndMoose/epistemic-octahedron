@@ -63,6 +63,19 @@
     .mode-toggle { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 3px; border-radius: 999px; background: var(--soft); border: 1px solid var(--border); }
     .mode-toggle button { border: 0; border-radius: 999px; padding: 8px 10px; background: transparent; color: var(--muted); box-shadow: none; }
     .mode-toggle button.active { background: var(--surface-strong); color: var(--text); box-shadow: 0 4px 14px rgba(15,23,42,.08); }
+    .panel-page[hidden] { display: none; }
+    .worldview-card { display: grid; gap: 10px; }
+    .worldview-pill { display: inline-flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; padding: 7px 10px; border-radius: 999px; background: var(--soft); color: var(--text); font-size: 12px; font-weight: 900; }
+    .worldview-dot { width: 8px; height: 8px; border-radius: 999px; background: currentColor; box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06); flex: 0 0 auto; }
+    .worldview-pill.origin { color: #64748b; }
+    .worldview-pill.peak, .worldview-pill.higher-positive { color: #16a34a; }
+    .worldview-pill.positive { color: #2563eb; }
+    .worldview-pill.borderline { color: #b45309; }
+    .worldview-pill.negative { color: #ea580c; }
+    .worldview-pill.deep-negative, .worldview-pill.collapse { color: #dc2626; }
+    .worldview-line { display: grid; gap: 4px; }
+    .worldview-line .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+    .worldview-line .v { font-size: 13px; line-height: 1.38; color: var(--text); }
 
     .slider-row { display: grid; gap: 7px; margin-bottom: 11px; }
     .slider-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
@@ -114,13 +127,14 @@
         <div class="mobile-title">
           <div>
             <h1>Epistemic Octahedron</h1>
-            <p>Plot values, then rotate to inspect.</p>
+            <p>Plot with one finger. Rotate with two.</p>
           </div>
-          <div class="mode-toggle" aria-label="Interaction mode">
+          <div class="mode-toggle" aria-label="Panel mode">
             <button id="plotModeBtn" class="active" type="button">Plot</button>
-            <button id="rotateModeBtn" type="button">Rotate</button>
+            <button id="rotateModeBtn" type="button">Worldview</button>
           </div>
         </div>
+        <div id="plotPanel" class="panel-page">
         <div class="slider-row">
           <div class="slider-head pair-head">
             <span id="practicalitySliderLabel" class="aspect-label">Practicality</span>
@@ -158,6 +172,13 @@
             <div class="k">Z</div>
             <input id="coord-z" class="v mono coord-input" type="text" value="0.000" inputmode="decimal" spellcheck="false" autocomplete="off" />
           </div>
+        </div>
+        </div>
+
+        <div id="worldviewPanel" class="panel-page worldview-card" hidden>
+          <div><span id="worldviewPill" class="worldview-pill origin"><span class="worldview-dot"></span><span>Origin / null state</span></span></div>
+          <div class="worldview-line"><div class="k">Region</div><div id="worldviewRegion" class="v">No active worldview has formed strongly enough to be plotted on the surface.</div></div>
+          <div class="worldview-line"><div class="k">Meaning</div><div id="worldviewMeaning" class="v">Move the plot point to see the worldview label and interpretation for that region.</div></div>
         </div>
       </div>
     </div>
@@ -198,6 +219,11 @@
     const resetBtn = document.getElementById('resetBtn');
     const plotModeBtn = document.getElementById('plotModeBtn');
     const rotateModeBtn = document.getElementById('rotateModeBtn');
+    const plotPanel = document.getElementById('plotPanel');
+    const worldviewPanel = document.getElementById('worldviewPanel');
+    const worldviewPill = document.getElementById('worldviewPill');
+    const worldviewRegion = document.getElementById('worldviewRegion');
+    const worldviewMeaning = document.getElementById('worldviewMeaning');
     const rotateLeftBtn = document.getElementById('rotateLeftBtn');
     const rotateRightBtn = document.getElementById('rotateRightBtn');
     const crosshair = document.getElementById('crosshair');
@@ -369,7 +395,7 @@
       stabilitySign: 1,
       hoveredSlider: null,
       hoveredAspectLabel: null,
-      interactionMode: 'plot',
+      uiMode: 'plot',
       activePointers: new Map(),
       gestureRotating: false,
       lastGestureCenter: null,
@@ -551,6 +577,7 @@
       updateStabilityLabels();
       updateAspectLabels();
       updateCoordLabels({ preserveActiveCoordRaw });
+      updateWorldviewUI();
       if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
       if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
       invalidateRender();
@@ -729,6 +756,7 @@
       updateStabilityLabels();
       updateAspectLabels();
       updateCoordLabels();
+      updateWorldviewUI();
       if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
       if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
       invalidateRender();
@@ -839,6 +867,165 @@
       }
     }
 
+
+    const ATLAS_VERTEX_EPS = 0.006;
+    const ATLAS_BAND = 1 / 7;
+    const ATLAS_BORDER_LIMIT = ATLAS_BAND;
+    const ATLAS_HIGHER_START = ATLAS_BAND * 3;
+    const ATLAS_NEAR_VERTEX_START = ATLAS_BAND * 5;
+
+    const WORLDVIEW_LABELS = {
+      E: {
+        borderline: ['Sensitive', 'Sensitivity is the equatorial E-side tendency: harm, unfairness, emotional temperature, and interpersonal signals register quickly. It is not yet victimhood, but it can become reactive when feeling outruns reality-contact or practical restraint.'],
+        positive: ['Empathetic', 'Empathy here means active concern for persons while still preserving basic contact with facts and consequences. The person can feel the human stake of a situation without turning every discomfort into proof of harm.'],
+        higher: ['Stable compassion / regulated empathy', 'Care becomes more useful, bounded, and reality-aware: the person can help without needing a victim identity, a villain story, or emotional excess to justify concern.'],
+        negative: ['Victimhood fixation', 'Empathy turned into grievance-identity. The person may interpret disagreement, limits, or discomfort as injury, then use suffering as a shield against correction.'],
+        deeper: ['Despairing nihilist', 'A deeper E-lane collapse where suffering becomes the organizing lens and meaning, agency, or truth stop repairing the frame.']
+      },
+      W: {
+        borderline: ['Hesitant / over-reflective', 'The equatorial W-side tendency: the person sees complexity, consequences, and nuance, but may stall before judgment.'],
+        positive: ['Wise / discerning', 'Judgment under uncertainty. The person can separate signal from noise, resist cheap certainty, and choose a proportionate response without needing perfect information.'],
+        higher: ['Integrated wisdom', 'Mature judgment that has absorbed human concern, practical constraint, and evidence without becoming vague.'],
+        negative: ['Pseudo-wisdom', 'Wisdom-like language without the burden of reality: slogans, moral theater, or detached generalities avoid evidence, tradeoffs, and correction.'],
+        deeper: ['Manipulator', 'Enough social or moral insight to steer people, but used to control perception rather than clarify truth.']
+      },
+      P: {
+        borderline: ['Blunt', 'The equatorial P-side tendency: the person moves toward function, constraints, and action quickly, but may miss tone, emotional cost, or moral context.'],
+        positive: ['Practical', 'Respect for what works, what costs something, and what can actually be done. Good intentions are not confused with workable solutions.'],
+        higher: ['Grounded effectiveness', 'Execution, prioritization, and tradeoffs while preserving truth, human stakes, and long-term judgment.'],
+        negative: ['Callous pragmatism', 'Practicality cut loose from empathy and wisdom. Coldness gets treated as realism and unnecessary harm as efficiency.'],
+        deeper: ['Opportunist', 'Constraints, incentives, and openings are read well, but mainly to take advantage rather than serve truth or responsibility.']
+      },
+      K: {
+        borderline: ['Defensive / status-sensitive', 'The equatorial K-side tendency: knowledge, correctness, credentials, or being seen as informed become emotionally loaded.'],
+        positive: ['Informed', 'Facts are present and usable, with some awareness of what is known, unknown, and uncertain.'],
+        higher: ['Evidence-grounded clarity', 'Knowledge stabilized by context and correction. Facts clarify reality rather than protect status.'],
+        negative: ['Defensive pseudo-knowledge', 'Facts, jargon, credentials, or selective data become armor; finding truth quietly gives way to protecting the image of being right.'],
+        deeper: ['Malicious rationalizer', 'Information becomes a weapon: fragments of knowledge excuse resentment, deception, contempt, or harm.']
+      },
+      EW: {
+        borderline: ['Naive idealist', 'Concern with moral intuition, but not enough constraint from evidence and practicality.'],
+        positive: ['Compassionate discernment', 'Care guided by judgment: it notices suffering while asking what is true, what helps, what harms, and what responsibility requires.'],
+        negative: ['Pathological altruist', 'Help becomes detached from reality and can become coercive, indulgent, enabling, or self-flattering.']
+      },
+      WP: {
+        borderline: ['Guarded skeptic', 'Judgment with practical caution, sometimes holding back too much.'],
+        positive: ['Stoic resolve', 'Disciplined acceptance of reality joined to practical action.'],
+        negative: ['Strategic bad actor', 'Discipline and judgment remain effective, but detach from truth and human concern.']
+      },
+      PK: {
+        borderline: ['Cold technician', 'Facts and function are strong, but the human and wisdom dimensions are thin.'],
+        positive: ['Technical pragmatist', 'Evidence joined with execution: builds, tests, measures, and adjusts while keeping claims accountable.'],
+        negative: ['Self-sealing conspiracist', 'Pattern-detection, selected facts, and practical suspicion form a closed loop that absorbs counterevidence.']
+      },
+      KE: {
+        borderline: ['Impressionable advocate / credential-gullible', 'Concern plus information, but too easily pulled by sources, credentials, statistics, or emotionally charged narratives.'],
+        positive: ['Informed compassion', 'Care disciplined by evidence: asks what is true, who is affected, and whether the proposed help actually works.'],
+        negative: ['Radical activist', 'Moral urgency combines with selected knowledge until identity and cause overpower correction.']
+      }
+    };
+
+    function percentText(value) {
+      const clean = Math.max(0, Math.min(100, value));
+      const rounded = Math.round(clean * 10) / 10;
+      return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+    }
+
+    function getWorldviewLateral(point) {
+      const ax = Math.abs(point.x);
+      const az = Math.abs(point.z);
+      const lateral = ax + az;
+      if (lateral < 1e-5) return { code: 'center', kind: 'center', dominant: 'Center' };
+      const xPole = point.x >= 0 ? 'E' : 'P';
+      const zPole = point.z >= 0 ? 'W' : 'K';
+      const xName = xPole === 'E' ? 'Empathy' : 'Practicality';
+      const zName = zPole === 'W' ? 'Wisdom' : 'Knowledge';
+      if (Math.max(ax, az) / lateral >= 0.68) {
+        return { code: ax >= az ? xPole : zPole, kind: 'lane', dominant: ax >= az ? xName : zName };
+      }
+      let code = 'EW';
+      if (xPole === 'P' && zPole === 'W') code = 'WP';
+      if (xPole === 'P' && zPole === 'K') code = 'PK';
+      if (xPole === 'E' && zPole === 'K') code = 'KE';
+      return { code, kind: 'blend', dominant: `${xName} + ${zName}` };
+    }
+
+    function positiveHeightNote(heightPercent) {
+      if (heightPercent < 20) return 'This is still close to the equator: healthy, but fragile under pressure.';
+      if (heightPercent < 45) return 'This is a clear positive expression, though not yet close to full integration.';
+      if (heightPercent < 70) return 'This is developed and increasingly stabilized by self-correction and reality-contact.';
+      return 'This is high positive stability: lateral emphasis is becoming context-flexible rather than identity-fixed.';
+    }
+
+    function negativeDepthNote(depthPercent) {
+      if (depthPercent < 15) return 'At this depth, treat it as early distortion, not delusion proper.';
+      if (depthPercent < 35) return 'The issue is mainly immature distortion: biased, but not fully detached from correction.';
+      if (depthPercent < 55) return 'False certainty becomes the main risk, with selective evidence or defensive interpretation.';
+      if (depthPercent < 70) return 'Delusion-grade pressure begins: reality-contact is meaningfully compromised.';
+      if (depthPercent < 85) return 'The distortion becomes organized and starts defending itself against correction.';
+      return 'The system is near collapse: self-sealing interpretation dominates and lateral flavor becomes less reliable.';
+    }
+
+    function makeWorldviewEntry(label, pillClass, region, meaning) {
+      return { label, pillClass, region, meaning };
+    }
+
+    function classifyWorldview(point) {
+      const ax = Math.abs(point.x);
+      const ay = Math.abs(point.y);
+      const az = Math.abs(point.z);
+      const lateral = ax + az;
+      const lateralInfo = getWorldviewLateral(point);
+      const labels = WORLDVIEW_LABELS[lateralInfo.code] || null;
+      const fallback = {
+        borderline: ['Borderline center', 'Unresolved tension near the equator more than a mature or collapsed direction.'],
+        positive: ['Generally stable integration', 'Positive stability without a clean single flavor.'],
+        higher: ['Generally mature integration', 'High positive stability near the upper region.'],
+        negative: ['Generalized distortion', 'Negative stability without a clean single flavor.'],
+        deeper: ['Generalized delusional collapse', 'Near-collapse territory where the whole worldview is pulled downward.']
+      };
+      const set = labels || fallback;
+
+      if (ax + ay + az < 1e-5) {
+        return makeWorldviewEntry('Origin / null state', 'origin', 'Center', 'The origin is reserved for pre-philosophical absence. No active worldview has formed strongly enough to be plotted on the surface.');
+      }
+      if (Math.abs(point.y - 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
+        return makeWorldviewEntry('Objective peak philosophical maturity', 'peak', 'Upper vertex', 'Empathy, practicality, wisdom, and knowledge are integrated under maximal positive epistemic stability.');
+      }
+      if (Math.abs(point.y + 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
+        return makeWorldviewEntry('Pure epistemic collapse', 'collapse', 'Lower vertex', 'Maximal active negative epistemic stability. Lateral flavor is no longer diagnostically useful.');
+      }
+      if (ay <= ATLAS_BORDER_LIMIT) {
+        const entry = set.borderline || fallback.borderline;
+        return makeWorldviewEntry(entry[0], 'borderline', `${lateralInfo.dominant} · equatorial`, entry[1]);
+      }
+      if (point.y > 0) {
+        const stability = point.y * 100;
+        if (point.y >= ATLAS_NEAR_VERTEX_START) {
+          return makeWorldviewEntry('Generally mature integration', 'peak', `${percentText(stability)} positive stability`, 'Near-peak territory: generally mature because lateral imbalance is weak and integration is high.');
+        }
+        const higher = lateralInfo.kind === 'lane' && point.y >= ATLAS_HIGHER_START;
+        const entry = higher ? (set.higher || set.positive || fallback.higher) : (set.positive || fallback.positive);
+        return makeWorldviewEntry(entry[0], higher ? 'higher-positive' : 'positive', `${lateralInfo.dominant} · ${percentText(stability)} positive stability`, `${entry[1]} ${positiveHeightNote(stability)}`);
+      }
+      const depth = -point.y * 100;
+      if (point.y <= -ATLAS_NEAR_VERTEX_START) {
+        return makeWorldviewEntry('Generalized delusional collapse', 'collapse', `${percentText(depth)} negative depth`, `Lateral flavor is no longer the main story; the whole worldview is being pulled into generalized reality-failure. ${negativeDepthNote(depth)}`);
+      }
+      const deeper = lateralInfo.kind === 'lane' && -point.y >= ATLAS_HIGHER_START;
+      const entry = deeper ? (set.deeper || set.negative || fallback.deeper) : (set.negative || fallback.negative);
+      return makeWorldviewEntry(entry[0], deeper ? 'deep-negative' : 'negative', `${lateralInfo.dominant} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
+    }
+
+    function updateWorldviewUI() {
+      if (!worldviewPill) return;
+      const worldview = classifyWorldview(state.point);
+      worldviewPill.className = `worldview-pill ${worldview.pillClass}`;
+      worldviewPill.innerHTML = `<span class="worldview-dot"></span><span>${worldview.label}</span>`;
+      worldviewRegion.textContent = worldview.region;
+      worldviewMeaning.textContent = worldview.meaning;
+    }
+
     function angleBetweenQuats(a, b) {
       return 2 * Math.acos(Math.min(1, Math.abs(a.dot(b))));
     }
@@ -940,11 +1127,15 @@
       }
     }
 
-    function setInteractionMode(mode) {
-      state.interactionMode = mode === 'rotate' ? 'rotate' : 'plot';
-      plotModeBtn.classList.toggle('active', state.interactionMode === 'plot');
-      rotateModeBtn.classList.toggle('active', state.interactionMode === 'rotate');
-      viewport.setAttribute('aria-label', state.interactionMode === 'plot' ? 'Plot a point on the octahedron' : 'Rotate the octahedron');
+    function setPanelMode(mode) {
+      state.uiMode = mode === 'worldview' ? 'worldview' : 'plot';
+      const showingPlot = state.uiMode === 'plot';
+      plotModeBtn.classList.toggle('active', showingPlot);
+      rotateModeBtn.classList.toggle('active', !showingPlot);
+      plotPanel.hidden = !showingPlot;
+      worldviewPanel.hidden = showingPlot;
+      viewport.setAttribute('aria-label', 'Plot with one pointer; rotate the octahedron with two or more pointers');
+      if (!showingPlot) updateWorldviewUI();
     }
 
     function updateSnapFlags() {
@@ -1272,6 +1463,9 @@
       updateStabilityLabels();
       truthy(!negativeStabilityLabel.classList.contains('active'), 'negative label inactive at zero');
       truthy(!positiveStabilityLabel.classList.contains('active'), 'positive label inactive at zero');
+      truthy(classifyWorldview(new THREE.Vector3(0, 0, 0)).label === 'Origin / null state', 'worldview classifier recognizes origin');
+      truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Sensitive', 'worldview classifier recognizes empathy equator');
+      truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Empathetic', 'worldview classifier recognizes positive empathy lane');
     }
 
 
@@ -1365,8 +1559,8 @@
       }
 
       const primaryPointer = e.button === 0;
-      const wantsRotate = e.button === 2 || (primaryPointer && state.interactionMode === 'rotate');
-      const wantsPlot = primaryPointer && state.interactionMode !== 'rotate';
+      const wantsRotate = e.button === 2;
+      const wantsPlot = primaryPointer;
 
       if (wantsPlot) {
         if (startPointDrag(e)) {
@@ -1447,8 +1641,8 @@
     renderer.domElement.addEventListener('pointercancel', endPointer);
 
     resetBtn.addEventListener('click', resetView);
-    plotModeBtn.addEventListener('click', () => setInteractionMode('plot'));
-    rotateModeBtn.addEventListener('click', () => setInteractionMode('rotate'));
+    plotModeBtn.addEventListener('click', () => setPanelMode('plot'));
+    rotateModeBtn.addEventListener('click', () => setPanelMode('worldview'));
     rotateLeftBtn.addEventListener('click', () => { rotateTopView(-1); invalidateRender(); });
     rotateRightBtn.addEventListener('click', () => { rotateTopView(1); invalidateRender(); });
 
@@ -1516,7 +1710,7 @@
     setupSliders();
     setupCoordInputs();
     resizeRendererToViewport();
-    setInteractionMode('plot');
+    setPanelMode('plot');
     applyPointFromControls();
     resetView();
     runSelfTests();
