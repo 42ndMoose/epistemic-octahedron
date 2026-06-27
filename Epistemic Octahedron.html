@@ -1016,10 +1016,36 @@
       return makeWorldviewEntry(entry[0], deeper ? 'deep-negative' : 'negative', `${lateralInfo.dominant} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
     }
 
+    function mixChannel(a, b, t) {
+      return Math.round(a + (b - a) * THREE.MathUtils.clamp(t, 0, 1));
+    }
+
+    function rgbToHex({ r, g, b }) {
+      return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    function mixRgb(a, b, t) {
+      return {
+        r: mixChannel(a.r, b.r, t),
+        g: mixChannel(a.g, b.g, t),
+        b: mixChannel(a.b, b.b, t)
+      };
+    }
+
+    function worldviewColorForPoint(point) {
+      const red = { r: 220, g: 38, b: 38 };
+      const gray = { r: 107, g: 114, b: 128 };
+      const blue = { r: 37, g: 99, b: 235 };
+      const y = THREE.MathUtils.clamp(point.y, -1, 1);
+      if (y < 0) return rgbToHex(mixRgb(red, gray, y + 1));
+      return rgbToHex(mixRgb(gray, blue, y));
+    }
+
     function updateWorldviewUI() {
       if (!worldviewPill) return;
       const worldview = classifyWorldview(state.point);
       worldviewPill.className = `worldview-pill ${worldview.pillClass}`;
+      worldviewPill.style.color = worldviewColorForPoint(state.point);
       worldviewPill.innerHTML = `<span class="worldview-dot"></span><span>${worldview.label}</span>`;
       worldviewRegion.textContent = worldview.region;
       worldviewMeaning.textContent = worldview.meaning;
@@ -1465,6 +1491,9 @@
       truthy(classifyWorldview(new THREE.Vector3(0, 0, 0)).label === 'Origin / null state', 'worldview classifier recognizes origin');
       truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Sensitive', 'worldview classifier recognizes empathy equator');
       truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Empathetic', 'worldview classifier recognizes positive empathy lane');
+      truthy(worldviewColorForPoint(new THREE.Vector3(0, -1, 0)) === '#dc2626', 'worldview color reaches collapse red');
+      truthy(worldviewColorForPoint(new THREE.Vector3(1, 0, 0)) === '#6b7280', 'worldview color reaches equator gray');
+      truthy(worldviewColorForPoint(new THREE.Vector3(0, 1, 0)) === '#2563eb', 'worldview color reaches peak blue');
     }
 
 
