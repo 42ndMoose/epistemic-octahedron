@@ -33,7 +33,7 @@
     }
 
     #app { position: fixed; inset: 0; overflow: hidden; background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); }
-    #viewport { position: absolute; inset: 0 0 250px; cursor: crosshair; touch-action: none; user-select: none; }
+    #viewport { position: absolute; inset: 0 0 250px; cursor: crosshair; touch-action: none; user-select: none; overflow: hidden; }
     #viewport.rotating, #viewport.dragging-point { cursor: grabbing; }
 
     #ui {
@@ -221,11 +221,11 @@
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(viewport.clientWidth || window.innerWidth, viewport.clientHeight || window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     viewport.appendChild(renderer.domElement);
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+    const camera = new THREE.PerspectiveCamera(45, (viewport.clientWidth || window.innerWidth) / (viewport.clientHeight || window.innerHeight), 0.01, 100);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.3));
 
@@ -369,7 +369,11 @@
       stabilitySign: 1,
       hoveredSlider: null,
       hoveredAspectLabel: null,
-      interactionMode: 'plot'
+      interactionMode: 'plot',
+      activePointers: new Map(),
+      gestureRotating: false,
+      lastGestureCenter: null,
+      lastGestureDistance: 0
     };
 
     const SNAP_EPS = THREE.MathUtils.degToRad(10);
@@ -992,6 +996,20 @@
 
     const ROTATE_DRAG_SCALE = 0.0065;
 
+    function getViewportSize() {
+      return {
+        width: Math.max(1, viewport.clientWidth || window.innerWidth),
+        height: Math.max(1, viewport.clientHeight || window.innerHeight)
+      };
+    }
+
+    function resizeRendererToViewport() {
+      const { width, height } = getViewportSize();
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
     function applyScreenDeltaRotate(dx, dy) {
       if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
 
@@ -1068,9 +1086,10 @@
 
     function projectWorldToScreen(worldPoint) {
       const v = worldPoint.clone().project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
       return {
-        x: (v.x * 0.5 + 0.5) * window.innerWidth,
-        y: (-v.y * 0.5 + 0.5) * window.innerHeight,
+        x: rect.left + (v.x * 0.5 + 0.5) * rect.width,
+        y: rect.top + (-v.y * 0.5 + 0.5) * rect.height,
         visible: v.z > -1 && v.z <= 1
       };
     }
@@ -1255,6 +1274,77 @@
       truthy(!positiveStabilityLabel.classList.contains('active'), 'positive label inactive at zero');
     }
 
+
+    function rememberPointer(event) {
+      state.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    function forgetPointer(event) {
+      state.activePointers.delete(event.pointerId);
+    }
+
+    function getGestureMetrics() {
+      const points = [...state.activePointers.values()];
+      const center = points.reduce((acc, point) => {
+        acc.x += point.x;
+        acc.y += point.y;
+        return acc;
+      }, { x: 0, y: 0 });
+      center.x /= points.length;
+      center.y /= points.length;
+
+      let distance = 0;
+      for (const point of points) {
+        distance += Math.hypot(point.x - center.x, point.y - center.y);
+      }
+      distance /= points.length;
+
+      return { center, distance };
+    }
+
+    function beginMultiTouchGesture() {
+      if (state.activePointers.size < 2) return;
+      if (state.draggingPoint) {
+        state.draggingPoint = false;
+        viewport.classList.remove('dragging-point');
+      }
+      state.rotating = false;
+      state.rotateGrabLocal = null;
+      state.rotateGrabFaceIndex = null;
+      state.rotateGrabFaceNormal = null;
+      state.rotateFallbackActive = false;
+      state.rotateGrabValid = false;
+      state.gestureRotating = true;
+      state.snapQuat = null;
+      state.angularSpeed = 0;
+      const metrics = getGestureMetrics();
+      state.lastGestureCenter = metrics.center;
+      state.lastGestureDistance = metrics.distance;
+      viewport.classList.add('rotating');
+    }
+
+    function updateMultiTouchGesture() {
+      if (!state.gestureRotating || state.activePointers.size < 2) return false;
+      const metrics = getGestureMetrics();
+      const lastCenter = state.lastGestureCenter || metrics.center;
+      applyScreenDeltaRotate(metrics.center.x - lastCenter.x, metrics.center.y - lastCenter.y);
+      if (state.lastGestureDistance > 0) {
+        state.zoomVel += (state.lastGestureDistance - metrics.distance) * 0.006;
+      }
+      state.lastGestureCenter = metrics.center;
+      state.lastGestureDistance = metrics.distance;
+      invalidateRender();
+      return true;
+    }
+
+    function endMultiTouchGestureIfNeeded() {
+      if (!state.gestureRotating || state.activePointers.size >= 2) return;
+      state.gestureRotating = false;
+      state.lastGestureCenter = null;
+      state.lastGestureDistance = 0;
+      viewport.classList.remove('rotating');
+      maybeSnapView();
+    }
     renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
     renderer.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -1262,8 +1352,17 @@
     }, { passive: false });
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
+      rememberPointer(e);
+      try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+
       state.lastX = e.clientX;
       state.lastY = e.clientY;
+
+      if (state.activePointers.size >= 2) {
+        e.preventDefault();
+        beginMultiTouchGesture();
+        return;
+      }
 
       const primaryPointer = e.button === 0;
       const wantsRotate = e.button === 2 || (primaryPointer && state.interactionMode === 'rotate');
@@ -1272,7 +1371,6 @@
       if (wantsPlot) {
         if (startPointDrag(e)) {
           e.preventDefault();
-          renderer.domElement.setPointerCapture(e.pointerId);
           return;
         }
       }
@@ -1280,7 +1378,6 @@
       if (wantsRotate) {
         if (startSurfaceRotate(e)) {
           e.preventDefault();
-          renderer.domElement.setPointerCapture(e.pointerId);
           return;
         }
       }
@@ -1292,6 +1389,15 @@
     });
 
     renderer.domElement.addEventListener('pointermove', (e) => {
+      if (state.activePointers.has(e.pointerId)) {
+        rememberPointer(e);
+      }
+
+      if (updateMultiTouchGesture()) {
+        e.preventDefault();
+        return;
+      }
+
       const dx = e.clientX - state.lastX;
       const dy = e.clientY - state.lastY;
 
@@ -1316,7 +1422,10 @@
     });
 
     function endPointer(e) {
+      forgetPointer(e);
+      endMultiTouchGestureIfNeeded();
       invalidateRender();
+      if (state.gestureRotating) return;
       if (state.draggingPoint) {
         state.draggingPoint = false;
         viewport.classList.remove('dragging-point');
@@ -1345,9 +1454,7 @@
 
     window.addEventListener('resize', () => {
       invalidateRender();
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      resizeRendererToViewport();
       if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
       if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
       invalidateRender();
@@ -1408,6 +1515,7 @@
     installAspectTooltips();
     setupSliders();
     setupCoordInputs();
+    resizeRendererToViewport();
     setInteractionMode('plot');
     applyPointFromControls();
     resetView();
