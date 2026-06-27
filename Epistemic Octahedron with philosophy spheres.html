@@ -1,0 +1,2334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Epistemic Octahedron Plotter</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: rgba(18, 22, 31, 0.94);
+      --panel-border: rgba(255,255,255,0.08);
+      --text: #eef2f7;
+      --muted: #a7b0bf;
+      --accent: #ff3b3b;
+      --btn: #1c2330;
+      --btn-hover: #273145;
+      --shadow: 0 18px 50px rgba(0,0,0,0.38);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at top, #111723, var(--bg) 60%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    #viewport {
+      position: absolute;
+      inset: 0;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    #viewport.rotating,
+    #viewport.dragging-point { cursor: grabbing; }
+
+    #ui {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      width: 340px;
+      max-width: calc(100vw - 32px);
+      display: grid;
+      gap: 12px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      pointer-events: auto;
+    }
+
+    .section {
+      padding: 14px 14px 12px;
+    }
+
+
+    .slider-row {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pair-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+    }
+
+    .aspect-label {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      white-space: nowrap;
+      transition: color 120ms ease, font-weight 120ms ease;
+    }
+
+    .aspect-label.right {
+      text-align: right;
+    }
+
+    .aspect-label.active {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .stability-label {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      white-space: nowrap;
+      transition: color 120ms ease, font-weight 120ms ease;
+    }
+
+    .stability-label.active {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .range-wrap {
+      position: relative;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08));
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #0d1118;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.34);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #0d1118;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.34);
+      cursor: pointer;
+    }
+
+    .hover-tooltip {
+      position: fixed;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, calc(-100% - 10px));
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(9, 12, 18, 0.92);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.32);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 30;
+      transition: opacity 90ms ease;
+    }
+
+    .hover-tooltip.show {
+      opacity: 1;
+    }
+
+    .coords {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .coord {
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .coord .k {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .coord .v {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .coord-input {
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+      caret-color: var(--text);
+      user-select: text;
+    }
+
+    .coord-input::selection {
+      background: rgba(255,255,255,0.22);
+      color: var(--text);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--panel-border);
+      background: var(--btn);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 140ms ease, transform 140ms ease;
+    }
+
+    button:hover { background: var(--btn-hover); }
+    button:active { transform: translateY(1px); }
+
+    .small-float {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .small-float > * { pointer-events: auto; }
+
+    .hint {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      max-width: min(420px, calc(100vw - 32px));
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .hint .section {
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .crosshair {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 15;
+      display: none;
+    }
+
+    .crosshair::before,
+    .crosshair::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(255, 59, 59, 0.7);
+      transform: translate(-50%, -50%);
+    }
+
+    .crosshair::before {
+      width: 18px;
+      height: 2px;
+      border-radius: 999px;
+    }
+
+    .crosshair::after {
+      width: 2px;
+      height: 18px;
+      border-radius: 999px;
+    }
+
+    .view-labels {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 14;
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.84);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    }
+
+    .view-labels .tag {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 6px 8px;
+      background: rgba(9, 12, 18, 0.5);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(6px);
+      white-space: nowrap;
+      transition: opacity 120ms ease;
+    }
+
+
+
+    .term-panel {
+      display: grid;
+      gap: 10px;
+      max-height: min(52vh, 560px);
+      overflow: auto;
+      scrollbar-width: thin;
+    }
+
+    .term-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 2px;
+    }
+
+    .term-panel-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .term-panel-note {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+      margin: 0 0 2px;
+    }
+
+    .term-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .term-empty {
+      padding: 10px;
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      background: rgba(255,255,255,0.025);
+    }
+
+    .term-row {
+      display: grid;
+      gap: 9px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.035);
+    }
+
+    .term-row-main {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .term-row-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .term-field {
+      display: grid;
+      gap: 4px;
+    }
+
+    .term-field label,
+    .term-visible-label {
+      font-size: 10px;
+      line-height: 1;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .term-input,
+    .term-number,
+    .term-color {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px;
+      background: rgba(5, 8, 13, 0.48);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      padding: 8px 9px;
+      outline: none;
+    }
+
+    .term-number {
+      font-variant-numeric: tabular-nums;
+      padding: 7px 8px;
+    }
+
+    .term-color {
+      height: 34px;
+      padding: 3px;
+      cursor: pointer;
+    }
+
+    .term-delete {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .term-show {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .term-overlays {
+      position: absolute;
+      inset: 0;
+      z-index: 16;
+      pointer-events: none;
+    }
+
+    .sphere-link-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .sphere-link-layer line {
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      opacity: 0.72;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.65));
+    }
+
+    .term-label-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .term-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      max-width: 210px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(9, 12, 18, 0.72);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: auto;
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+      backdrop-filter: blur(8px);
+    }
+
+    .term-label.dragging {
+      cursor: grabbing;
+    }
+
+    .mono { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="viewport"></div>
+
+    <div id="ui">
+      <div class="panel section">
+        <div class="slider-row">
+          <div class="slider-head pair-head">
+            <span id="practicalitySliderLabel" class="aspect-label">Practicality</span>
+            <span id="empathySliderLabel" class="aspect-label right">Empathy</span>
+          </div>
+          <div class="range-wrap"><input id="practicality" type="range" min="0" max="100" step="0.1" value="50" /></div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-head pair-head">
+            <span id="wisdomSliderLabel" class="aspect-label">Wisdom</span>
+            <span id="knowledgeSliderLabel" class="aspect-label right">Knowledge</span>
+          </div>
+          <div class="range-wrap"><input id="wisdom" type="range" min="0" max="100" step="0.1" value="50" /></div>
+        </div>
+
+        <div class="slider-row" style="margin-bottom: 4px;">
+          <div class="slider-head">
+            <span id="negativeStabilityLabel" class="stability-label">Negative Epistemic Stability</span>
+            <span id="positiveStabilityLabel" class="stability-label">Positive Epistemic Stability</span>
+          </div>
+          <div class="range-wrap"><input id="stability" type="range" min="-100" max="100" step="0.1" value="0" /></div>
+        </div>
+
+        <div class="coords">
+          <div class="coord">
+            <div class="k">X</div>
+            <input id="coord-x" class="v mono coord-input" type="text" value="0.000" inputmode="decimal" spellcheck="false" autocomplete="off" />
+          </div>
+          <div class="coord">
+            <div class="k">Y</div>
+            <input id="coord-y" class="v mono coord-input" type="text" value="0.000" inputmode="decimal" spellcheck="false" autocomplete="off" />
+          </div>
+          <div class="coord">
+            <div class="k">Z</div>
+            <input id="coord-z" class="v mono coord-input" type="text" value="0.000" inputmode="decimal" spellcheck="false" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel section term-panel">
+        <div class="term-panel-head">
+          <div class="term-panel-title">Term Spheres</div>
+          <button id="addSphereBtn">Add sphere</button>
+        </div>
+        <p class="term-panel-note">Transparent conceptual volumes. Visible spheres tint the octahedron surface where they intersect; overlaps blend their colors.</p>
+        <div id="sphereList" class="term-list"></div>
+      </div>
+    </div>
+
+    <div class="small-float">
+      <button id="resetBtn">Reset to center</button>
+      <button id="rotateLeftBtn" style="display:none;">↻ 90°</button>
+      <button id="rotateRightBtn" style="display:none;">↺ 90°</button>
+    </div>
+
+    <div id="crosshair" class="crosshair"></div>
+    <div id="viewLabels" class="view-labels">
+      <div id="labelEmpathy" class="tag">Empathy</div>
+      <div id="labelPracticality" class="tag">Practicality</div>
+      <div id="labelWisdom" class="tag">Wisdom</div>
+      <div id="labelKnowledge" class="tag">Knowledge</div>
+    </div>
+    <div id="termOverlays" class="term-overlays">
+      <svg id="sphereLinkLayer" class="sphere-link-layer"></svg>
+      <div id="termLabelLayer" class="term-label-layer"></div>
+    </div>
+    <div id="sliderTooltip" class="hover-tooltip"></div>
+    <div id="aspectTooltip" class="hover-tooltip"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+    const viewport = document.getElementById('viewport');
+    const practicalityEl = document.getElementById('practicality');
+    const wisdomEl = document.getElementById('wisdom');
+    const stabilityEl = document.getElementById('stability');
+    const practicalitySliderLabel = document.getElementById('practicalitySliderLabel');
+    const empathySliderLabel = document.getElementById('empathySliderLabel');
+    const wisdomSliderLabel = document.getElementById('wisdomSliderLabel');
+    const knowledgeSliderLabel = document.getElementById('knowledgeSliderLabel');
+    const negativeStabilityLabel = document.getElementById('negativeStabilityLabel');
+    const positiveStabilityLabel = document.getElementById('positiveStabilityLabel');
+    const coordX = document.getElementById('coord-x');
+    const coordY = document.getElementById('coord-y');
+    const coordZ = document.getElementById('coord-z');
+    const resetBtn = document.getElementById('resetBtn');
+    const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+    const rotateRightBtn = document.getElementById('rotateRightBtn');
+    const crosshair = document.getElementById('crosshair');
+    const viewLabels = document.getElementById('viewLabels');
+    const labelEmpathy = document.getElementById('labelEmpathy');
+    const labelPracticality = document.getElementById('labelPracticality');
+    const labelWisdom = document.getElementById('labelWisdom');
+    const labelKnowledge = document.getElementById('labelKnowledge');
+    const sliderTooltip = document.getElementById('sliderTooltip');
+    const aspectTooltip = document.getElementById('aspectTooltip');
+
+    const addSphereBtn = document.getElementById('addSphereBtn');
+    const sphereList = document.getElementById('sphereList');
+    const termOverlays = document.getElementById('termOverlays');
+    const sphereLinkLayer = document.getElementById('sphereLinkLayer');
+    const termLabelLayer = document.getElementById('termLabelLayer');
+    const rangeInputs = [practicalityEl, wisdomEl, stabilityEl];
+    const aspectTooltipDefs = [
+      { node: practicalitySliderLabel, input: practicalityEl, side: 'left' },
+      { node: empathySliderLabel, input: practicalityEl, side: 'right' },
+      { node: wisdomSliderLabel, input: wisdomEl, side: 'left' },
+      { node: knowledgeSliderLabel, input: wisdomEl, side: 'right' }
+    ];
+
+    const scene = new THREE.Scene();
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    viewport.appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+    keyLight.position.set(3, 4, 5);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.65);
+    rimLight.position.set(-4, 2, -3);
+    scene.add(rimLight);
+
+    const grid = new THREE.GridHelper(8, 16, 0x445066, 0x263041);
+    grid.position.y = -1.75;
+    grid.material.transparent = true;
+    grid.material.opacity = 0.22;
+    scene.add(grid);
+
+    const rootGroup = new THREE.Group();
+    scene.add(rootGroup);
+
+    const octaGroup = new THREE.Group();
+    rootGroup.add(octaGroup);
+
+
+    const sphereLayer = new THREE.Group();
+    octaGroup.add(sphereLayer);
+
+    const highlightResolution = 80;
+    const MAX_SHADER_TERMS = 16;
+    const termHighlightGeom = buildSubdividedOctaSurfaceGeometry(highlightResolution);
+    const termHighlightMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      side: THREE.FrontSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -6,
+      polygonOffsetUnits: -6,
+      uniforms: {
+        termCount: { value: 0 },
+        termCenters: { value: Array.from({ length: MAX_SHADER_TERMS }, () => new THREE.Vector3()) },
+        termColors: { value: Array.from({ length: MAX_SHADER_TERMS }, () => new THREE.Color(0xffffff)) },
+        termRadii: { value: Array.from({ length: MAX_SHADER_TERMS }, () => 0) }
+      },
+      vertexShader: `
+        attribute vec3 surfacePosition;
+        varying vec3 vSurfacePosition;
+        void main() {
+          vSurfacePosition = surfacePosition;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        #define MAX_TERMS 16
+        uniform int termCount;
+        uniform vec3 termCenters[MAX_TERMS];
+        uniform vec3 termColors[MAX_TERMS];
+        uniform float termRadii[MAX_TERMS];
+        varying vec3 vSurfacePosition;
+
+        vec3 screenBlend(vec3 base, vec3 top, float weight) {
+          vec3 weightedTop = clamp(top * weight, 0.0, 1.0);
+          return 1.0 - (1.0 - base) * (1.0 - weightedTop);
+        }
+
+        void main() {
+          vec3 mixed = vec3(0.0);
+          float coverageSum = 0.0;
+          float overlapCount = 0.0;
+
+          for (int i = 0; i < MAX_TERMS; i++) {
+            if (i >= termCount) break;
+            float radius = termRadii[i];
+            float distToCenter = distance(vSurfacePosition, termCenters[i]);
+            float feather = max(0.018, radius * 0.11);
+            float outsideFade = 1.0 - smoothstep(radius, radius + feather, distToCenter);
+            float coverage = distToCenter <= radius ? 1.0 : outsideFade;
+            if (coverage <= 0.001) continue;
+            mixed = screenBlend(mixed, termColors[i], coverage);
+            coverageSum += coverage;
+            overlapCount += 1.0;
+          }
+
+          if (coverageSum <= 0.001) discard;
+          float alpha = clamp(0.66 * min(coverageSum, 1.0) + max(0.0, overlapCount - 1.0) * 0.10, 0.0, 0.9);
+          gl_FragColor = vec4(mixed, alpha);
+        }
+      `
+    });
+    const termHighlightMesh = new THREE.Mesh(termHighlightGeom, termHighlightMat);
+    termHighlightMesh.renderOrder = 8;
+    octaGroup.add(termHighlightMesh);
+
+    const terms = [];
+    let nextTermId = 1;
+    const TERM_PALETTE = ['#ff4d4d', '#5ad7ff', '#ffd166', '#8cff7a', '#c084fc', '#ff8bd1', '#f97316'];
+    const scratchColor = new THREE.Color();
+    const scratchMixedColor = new THREE.Color();
+    const scratchScreenColor = new THREE.Color();
+    const labelDragState = { term: null, pointerId: null, dx: 0, dy: 0 };
+
+    const octaGeom = new THREE.OctahedronGeometry(1, 0);
+    const solidMat = new THREE.MeshPhysicalMaterial({
+      color: 0x98a7c7,
+      transparent: true,
+      opacity: 0.26,
+      roughness: 0.72,
+      metalness: 0,
+      side: THREE.FrontSide,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1
+    });
+    octaGroup.add(new THREE.Mesh(octaGeom, solidMat));
+
+    octaGroup.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(octaGeom),
+      new THREE.LineBasicMaterial({ color: 0xe6edf9, transparent: true, opacity: 0.3, depthTest: true })
+    ));
+
+    const equatorPoints = [
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 0, -1),
+      new THREE.Vector3(1, 0, 0)
+    ];
+    octaGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(equatorPoints),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14, depthTest: true })
+    ));
+
+    octaGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.2, 0, 0), new THREE.Vector3(1.2, 0, 0)]),
+      new THREE.LineBasicMaterial({ color: 0x6ad1ff, transparent: true, opacity: 0.16, depthTest: true })
+    ));
+
+    octaGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -1.2), new THREE.Vector3(0, 0, 1.2)]),
+      new THREE.LineBasicMaterial({ color: 0xffd36a, transparent: true, opacity: 0.16, depthTest: true })
+    ));
+
+    const pickMesh = new THREE.Mesh(
+      octaGeom,
+      new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+    );
+    octaGroup.add(pickMesh);
+
+    const pointerConeHeight = 0.13;
+    const pointerConeRadius = 0.05;
+    const pointerLift = 0.0025;
+    const pointerMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff3b3b,
+      roughness: 0.35,
+      metalness: 0.05,
+      emissive: 0x320404
+    });
+
+    const pointerMarker = new THREE.Group();
+    pointerMarker.renderOrder = 5;
+
+    const pointerOuterCone = new THREE.Mesh(
+      new THREE.ConeGeometry(pointerConeRadius, pointerConeHeight, 26, 1),
+      pointerMaterial
+    );
+    pointerOuterCone.position.y = pointerConeHeight * 1.5;
+    pointerMarker.add(pointerOuterCone);
+
+    const pointerInnerCone = new THREE.Mesh(
+      new THREE.ConeGeometry(pointerConeRadius, pointerConeHeight, 26, 1),
+      pointerMaterial
+    );
+    pointerInnerCone.rotation.z = Math.PI;
+    pointerInnerCone.position.y = pointerConeHeight * 0.5;
+    pointerMarker.add(pointerInnerCone);
+
+    octaGroup.add(pointerMarker);
+
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const tempVec3 = new THREE.Vector3();
+    const tempQuat = new THREE.Quaternion();
+    const labelCenterLocal = new THREE.Vector3(0, 0, 0);
+    const labelDefs = [
+      { node: labelEmpathy, local: new THREE.Vector3(1, 0, 0) },
+      { node: labelPracticality, local: new THREE.Vector3(-1, 0, 0) },
+      { node: labelWisdom, local: new THREE.Vector3(0, 0, 1) },
+      { node: labelKnowledge, local: new THREE.Vector3(0, 0, -1) }
+    ];
+
+    const WORLD_X = new THREE.Vector3(1, 0, 0);
+    const WORLD_Y = new THREE.Vector3(0, 1, 0);
+    const WORLD_Z = new THREE.Vector3(0, 0, 1);
+
+    const state = {
+      target: new THREE.Vector3(0, 0, 0),
+      distance: 4.25,
+      panVel: new THREE.Vector3(),
+      zoomVel: 0,
+      draggingPoint: false,
+      rotating: false,
+      lastX: 0,
+      lastY: 0,
+      point: new THREE.Vector3(0, 0, 0),
+      pointNormal: new THREE.Vector3(0, 1, 0),
+      snappedTopBottom: false,
+      orientation: new THREE.Quaternion(),
+      angularAxis: new THREE.Vector3(0, 1, 0),
+      angularSpeed: 0,
+      snapQuat: null,
+      rotateGrabLocal: null,
+      rotateGrabFaceIndex: null,
+      rotateGrabFaceNormal: null,
+      rotateFallbackActive: false,
+      rotateGrabValid: false,
+      lastSnapKey: null,
+      surfaceLocked: false,
+      stabilitySign: 1,
+      hoveredSlider: null,
+      hoveredAspectLabel: null
+    };
+
+    const SNAP_EPS = THREE.MathUtils.degToRad(10);
+    const PAN_DAMP = 0.82;
+    const ZOOM_DAMP = 0.86;
+    const ANGULAR_DAMP = 0.9;
+    const CANONICAL_VIEWS = [];
+    const CANONICAL_SIDE_VIEWS = [];
+
+    function makeCanonicalQuat(yaw, pitch) {
+      return new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+    }
+
+    function buildCanonicalViews() {
+      const yaws = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+      for (const yaw of yaws) {
+        const side = { key: `side-${yaw}`, type: 'side', yaw, pitch: 0, quat: makeCanonicalQuat(yaw, 0) };
+        CANONICAL_VIEWS.push(side);
+        CANONICAL_SIDE_VIEWS.push(side);
+        CANONICAL_VIEWS.push({ key: `top-${yaw}`, type: 'top', yaw, pitch: -Math.PI / 2, quat: makeCanonicalQuat(yaw, -Math.PI / 2) });
+        CANONICAL_VIEWS.push({ key: `bottom-${yaw}`, type: 'bottom', yaw, pitch: Math.PI / 2, quat: makeCanonicalQuat(yaw, Math.PI / 2) });
+      }
+    }
+    buildCanonicalViews();
+
+    function setNDCFromEvent(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    function syncSceneMatrices() {
+      rootGroup.position.copy(state.target);
+      octaGroup.quaternion.copy(state.orientation);
+      rootGroup.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
+    }
+
+    function sliderToDomain(v) {
+      return v / 100;
+    }
+
+    function bipolarFromPair(posValue) {
+      return sliderToDomain(posValue) * 2 - 1;
+    }
+
+    function bipolarFromReversedPair(posValue) {
+      return -bipolarFromPair(posValue);
+    }
+
+    function pairFromBipolar(t) {
+      return (THREE.MathUtils.clamp(t, -1, 1) + 1) * 50;
+    }
+
+    function reversedPairFromBipolar(t) {
+      return pairFromBipolar(-t);
+    }
+
+    function formatCoordValue(value) {
+      const cleaned = Math.abs(value) < 5e-7 ? 0 : value;
+      const formatted = cleaned.toFixed(3);
+      return formatted === '-0.000' ? '0.000' : formatted;
+    }
+
+    function parseCoordValue(text) {
+      const trimmed = text.trim();
+      if (!trimmed) return null;
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function formatPercentNumber(value, { signed = false } = {}) {
+      const cleaned = Math.abs(value) < 0.05 ? 0 : value;
+      const rounded = Math.round(cleaned * 10) / 10;
+      const whole = Math.abs(rounded - Math.round(rounded)) < 1e-9;
+      const text = whole ? String(Math.round(rounded)) : rounded.toFixed(1);
+      if (!signed) return `${text}%`;
+      const prefix = rounded > 0 ? '+' : '';
+      return `${prefix}${text}%`;
+    }
+
+    function getPairSliderKnobPercent(input) {
+      return Math.abs(parseFloat(input.value) - 50) * 2;
+    }
+
+    function getAspectLabelPercent(input, side) {
+      const value = parseFloat(input.value);
+      return side === 'left' ? 100 - value : value;
+    }
+
+    function updateStabilitySignFromSlider(rawValue = parseFloat(stabilityEl.value)) {
+      if (rawValue > 0.0001) state.stabilitySign = 1;
+      else if (rawValue < -0.0001) state.stabilitySign = -1;
+    }
+
+    function updateStabilityLabels() {
+      const value = parseFloat(stabilityEl.value);
+      const eps = 0.0001;
+      negativeStabilityLabel.classList.toggle('active', value < -eps);
+      positiveStabilityLabel.classList.toggle('active', value > eps);
+    }
+
+    function updatePairLabels(leftLabel, rightLabel, axisValue, positiveSide, stabilityValue) {
+      const eps = 0.0001;
+      leftLabel.classList.remove('active');
+      rightLabel.classList.remove('active');
+
+      if (axisValue > eps) {
+        (positiveSide === 'left' ? leftLabel : rightLabel).classList.add('active');
+        return;
+      }
+
+      if (axisValue < -eps) {
+        (positiveSide === 'left' ? rightLabel : leftLabel).classList.add('active');
+        return;
+      }
+
+      if (stabilityValue > eps) {
+        leftLabel.classList.add('active');
+        rightLabel.classList.add('active');
+      }
+    }
+
+    function updateAspectLabels() {
+      const x = bipolarFromPair(parseFloat(practicalityEl.value));
+      const z = bipolarFromReversedPair(parseFloat(wisdomEl.value));
+      const stabilityValue = parseFloat(stabilityEl.value);
+
+      updatePairLabels(practicalitySliderLabel, empathySliderLabel, x, 'right', stabilityValue);
+      updatePairLabels(wisdomSliderLabel, knowledgeSliderLabel, z, 'left', stabilityValue);
+    }
+
+    function engageSurfaceLock(preferredSign = null) {
+      state.surfaceLocked = true;
+      if (preferredSign === 1 || preferredSign === -1) {
+        state.stabilitySign = preferredSign;
+        return;
+      }
+      updateStabilitySignFromSlider();
+    }
+
+    function pointFromControls() {
+      if (!state.surfaceLocked) {
+        return new THREE.Vector3(0, 0, 0);
+      }
+
+      const xAxis = bipolarFromPair(parseFloat(practicalityEl.value));
+      const zAxis = bipolarFromReversedPair(parseFloat(wisdomEl.value));
+      const norm = Math.max(1, Math.abs(xAxis) + Math.abs(zAxis));
+      const x = xAxis / norm;
+      const z = zAxis / norm;
+      const yMag = Math.max(0, 1 - Math.abs(x) - Math.abs(z));
+      const y = yMag * state.stabilitySign;
+
+      stabilityEl.value = (y * 100).toFixed(3);
+      return new THREE.Vector3(x, y, z);
+    }
+
+    function controlsFromPoint(point, options = {}) {
+      const { preserveActiveCoordRaw = false } = options;
+      const practicality = pairFromBipolar(point.x);
+      const wisdom = reversedPairFromBipolar(point.z);
+
+      practicalityEl.value = practicality.toFixed(3);
+      wisdomEl.value = wisdom.toFixed(3);
+      stabilityEl.value = (THREE.MathUtils.clamp(point.y, -1, 1) * 100).toFixed(3);
+
+      if (Math.abs(point.y) > 1e-6) {
+        state.stabilitySign = Math.sign(point.y);
+      }
+      if (Math.abs(point.x) + Math.abs(point.y) + Math.abs(point.z) > 1e-5) {
+        state.surfaceLocked = true;
+      }
+
+      updateStabilityLabels();
+      updateAspectLabels();
+      updateCoordLabels({ preserveActiveCoordRaw });
+      if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
+      if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
+      updateTermLabels();
+      invalidateRender();
+    }
+
+    function projectPointToOctaSurface(localPoint) {
+      const manhattan = Math.abs(localPoint.x) + Math.abs(localPoint.y) + Math.abs(localPoint.z);
+      if (manhattan < 1e-8) {
+        return new THREE.Vector3(0, state.stabilitySign, 0);
+      }
+      return localPoint.clone().multiplyScalar(1 / manhattan);
+    }
+
+    function getOctaSurfaceNormal(localPoint) {
+      const normal = new THREE.Vector3(
+        Math.abs(localPoint.x) > 1e-6 ? Math.sign(localPoint.x) : 0,
+        Math.abs(localPoint.y) > 1e-6 ? Math.sign(localPoint.y) : 0,
+        Math.abs(localPoint.z) > 1e-6 ? Math.sign(localPoint.z) : 0,
+      );
+
+      if (normal.lengthSq() < 1e-8) {
+        normal.set(0, state.stabilitySign >= 0 ? 1 : -1, 0);
+      }
+
+      return normal.normalize();
+    }
+
+    function updatePointerNormalFromPoint() {
+      const p = state.point.clone();
+      const sum = Math.abs(p.x) + Math.abs(p.y) + Math.abs(p.z);
+      if (sum > 1e-8) {
+        const surfacePoint = Math.abs(sum - 1) < 0.0005 ? p : projectPointToOctaSurface(p);
+        state.pointNormal.copy(getOctaSurfaceNormal(surfacePoint));
+      } else {
+        state.pointNormal.set(0, 1, 0);
+      }
+    }
+
+    function applyPointVisuals() {
+      const p = state.point.clone();
+      const n = state.pointNormal.clone().normalize();
+      pointerMarker.position.copy(p).addScaledVector(n, 0.0025);
+      tempQuat.setFromUnitVectors(WORLD_Y, n);
+      pointerMarker.quaternion.copy(tempQuat);
+    }
+
+    function updateCoordLabels(options = {}) {
+      const { preserveActiveCoordRaw = false } = options;
+      const active = preserveActiveCoordRaw ? document.activeElement : null;
+
+      if (active !== coordX) coordX.value = formatCoordValue(state.point.x);
+      if (active !== coordY) coordY.value = formatCoordValue(state.point.y);
+      if (active !== coordZ) coordZ.value = formatCoordValue(state.point.z);
+    }
+
+    function getFallbackSignForAxis(axis) {
+      if (axis === 'y') {
+        if (Math.abs(state.point.x) > 1e-8) return Math.sign(state.point.x);
+        if (Math.abs(state.point.z) > 1e-8) return Math.sign(state.point.z);
+        return 1;
+      }
+      return state.stabilitySign >= 0 ? 1 : -1;
+    }
+
+    function rebalancePointFromAxis(axis, rawValue) {
+      const next = state.point.clone();
+      const edited = THREE.MathUtils.clamp(rawValue, -1, 1);
+      next[axis] = edited;
+
+      const otherAxes = ['x', 'y', 'z'].filter((key) => key !== axis);
+      const remaining = Math.max(0, 1 - Math.abs(edited));
+      const otherAbsSum = Math.abs(next[otherAxes[0]]) + Math.abs(next[otherAxes[1]]);
+
+      if (remaining < 1e-8) {
+        next[otherAxes[0]] = 0;
+        next[otherAxes[1]] = 0;
+        return projectPointToOctaSurface(next);
+      }
+
+      if (otherAbsSum > 1e-8) {
+        const scale = remaining / otherAbsSum;
+        next[otherAxes[0]] *= scale;
+        next[otherAxes[1]] *= scale;
+      } else {
+        next[otherAxes[0]] = 0;
+        next[otherAxes[1]] = 0;
+        const fallbackAxis = axis === 'y' ? 'x' : 'y';
+        next[fallbackAxis] = remaining * getFallbackSignForAxis(axis);
+      }
+
+      return projectPointToOctaSurface(next);
+    }
+
+    function applyCoordAxisInput(axis, rawValue, preserveActiveCoordRaw = true) {
+      const next = rebalancePointFromAxis(axis, rawValue);
+      state.point.copy(next);
+      state.surfaceLocked = true;
+      if (Math.abs(next.y) > 1e-6) state.stabilitySign = Math.sign(next.y);
+      updatePointerNormalFromPoint();
+      applyPointVisuals();
+      controlsFromPoint(next, { preserveActiveCoordRaw });
+      invalidateRender();
+    }
+
+    function commitCoordInput(axis, input) {
+      const parsed = parseCoordValue(input.value);
+      if (parsed === null) {
+        input.value = formatCoordValue(state.point[axis]);
+        return;
+      }
+
+      applyCoordAxisInput(axis, parsed, false);
+      input.value = formatCoordValue(state.point[axis]);
+    }
+
+    function setupCoordInputs() {
+      const defs = [
+        { axis: 'x', input: coordX },
+        { axis: 'y', input: coordY },
+        { axis: 'z', input: coordZ }
+      ];
+
+      for (const { axis, input } of defs) {
+        input.addEventListener('pointerdown', (event) => {
+          if (document.activeElement !== input) return;
+          const fullySelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+          if (!fullySelected) return;
+          event.preventDefault();
+          requestAnimationFrame(() => {
+            const end = input.value.length;
+            input.setSelectionRange(end, end);
+          });
+        });
+
+        input.addEventListener('focus', () => {
+          requestAnimationFrame(() => {
+            if (document.activeElement === input) input.select();
+          });
+        });
+
+        input.addEventListener('input', () => {
+          const parsed = parseCoordValue(input.value);
+          if (parsed === null) return;
+          applyCoordAxisInput(axis, parsed, true);
+        });
+
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commitCoordInput(axis, input);
+            input.blur();
+            return;
+          }
+
+          if (event.key === 'Tab') {
+            commitCoordInput(axis, input);
+            return;
+          }
+
+          if (event.key === 'Escape') {
+            input.value = formatCoordValue(state.point[axis]);
+            input.blur();
+          }
+        });
+
+        input.addEventListener('blur', () => {
+          commitCoordInput(axis, input);
+        });
+      }
+    }
+
+    function applyPointFromControls() {
+      state.point.copy(pointFromControls());
+      updatePointerNormalFromPoint();
+      applyPointVisuals();
+      updateStabilityLabels();
+      updateAspectLabels();
+      updateCoordLabels();
+      if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
+      if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
+      invalidateRender();
+    }
+
+    function formatSliderPercent(input) {
+      const value = parseFloat(input.value);
+      if (input === stabilityEl) {
+        return formatPercentNumber(value, { signed: true });
+      }
+      return formatPercentNumber(getPairSliderKnobPercent(input));
+    }
+
+    function showSliderTooltip(input) {
+      if (!input) return;
+      const rect = input.getBoundingClientRect();
+      const min = parseFloat(input.min || '0');
+      const max = parseFloat(input.max || '100');
+      const value = parseFloat(input.value);
+      const ratio = max === min ? 0 : (value - min) / (max - min);
+      const x = rect.left + rect.width * ratio;
+      const y = rect.top;
+
+      sliderTooltip.textContent = formatSliderPercent(input);
+      sliderTooltip.style.left = `${Math.max(16, Math.min(window.innerWidth - 16, x))}px`;
+      sliderTooltip.style.top = `${y}px`;
+      sliderTooltip.classList.add('show');
+      input.title = sliderTooltip.textContent;
+    }
+
+    function hideSliderTooltip() {
+      state.hoveredSlider = null;
+      sliderTooltip.classList.remove('show');
+    }
+
+    function showAspectTooltip(def) {
+      if (!def) return;
+      const rect = def.node.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top;
+
+      aspectTooltip.textContent = formatPercentNumber(getAspectLabelPercent(def.input, def.side));
+      aspectTooltip.style.left = `${Math.max(16, Math.min(window.innerWidth - 16, x))}px`;
+      aspectTooltip.style.top = `${y}px`;
+      aspectTooltip.classList.add('show');
+      def.node.title = aspectTooltip.textContent;
+    }
+
+    function hideAspectTooltip() {
+      state.hoveredAspectLabel = null;
+      aspectTooltip.classList.remove('show');
+    }
+
+    function installSliderTooltips() {
+      for (const input of rangeInputs) {
+        input.addEventListener('pointerenter', () => {
+          state.hoveredSlider = input;
+          showSliderTooltip(input);
+        });
+        input.addEventListener('pointermove', () => {
+          state.hoveredSlider = input;
+          showSliderTooltip(input);
+        });
+        input.addEventListener('pointerleave', hideSliderTooltip);
+        input.addEventListener('blur', hideSliderTooltip);
+      }
+    }
+
+    function installAspectTooltips() {
+      for (const def of aspectTooltipDefs) {
+        def.node.addEventListener('pointerenter', () => {
+          state.hoveredAspectLabel = def;
+          showAspectTooltip(def);
+        });
+        def.node.addEventListener('pointermove', () => {
+          state.hoveredAspectLabel = def;
+          showAspectTooltip(def);
+        });
+        def.node.addEventListener('pointerleave', hideAspectTooltip);
+      }
+    }
+
+    function setupSliders() {
+      practicalityEl.addEventListener('input', () => {
+        engageSurfaceLock();
+        applyPointFromControls();
+      invalidateRender();
+      });
+
+      wisdomEl.addEventListener('input', () => {
+        engageSurfaceLock();
+        applyPointFromControls();
+      invalidateRender();
+      });
+
+      stabilityEl.addEventListener('input', () => {
+        const raw = parseFloat(stabilityEl.value);
+        const preferredSign = raw < 0 ? -1 : 1;
+        engageSurfaceLock(preferredSign);
+        applyPointFromControls();
+      invalidateRender();
+      });
+
+      for (const input of rangeInputs) {
+        input.addEventListener('input', () => {
+          if (state.hoveredSlider === input) showSliderTooltip(input);
+        });
+      }
+    }
+
+    function angleBetweenQuats(a, b) {
+      return 2 * Math.acos(Math.min(1, Math.abs(a.dot(b))));
+    }
+
+    function nearestCanonicalSideView(quat = state.orientation) {
+      let best = null;
+      let bestAngle = Infinity;
+      for (const entry of CANONICAL_SIDE_VIEWS) {
+        const ang = angleBetweenQuats(quat, entry.quat);
+        if (ang < bestAngle) {
+          bestAngle = ang;
+          best = entry;
+        }
+      }
+      return { entry: best, angle: bestAngle };
+    }
+
+    function projectVectorOntoPlane(vector, planeNormal) {
+      return vector.clone().addScaledVector(planeNormal, -vector.dot(planeNormal));
+    }
+
+    function getTopBottomSnapInfo(quat = state.orientation) {
+      const stabilityAxisWorld = WORLD_Y.clone().applyQuaternion(quat).normalize();
+      const zDot = THREE.MathUtils.clamp(stabilityAxisWorld.dot(WORLD_Z), -1, 1);
+      const angle = Math.acos(Math.abs(zDot));
+      const targetY = zDot >= 0 ? WORLD_Z.clone() : WORLD_Z.clone().negate();
+
+      let targetX = WORLD_X.clone().applyQuaternion(quat);
+      targetX = projectVectorOntoPlane(targetX, targetY);
+
+      if (targetX.lengthSq() < 1e-8) {
+        targetX = new THREE.Vector3(0, 0, 1).applyQuaternion(quat);
+        targetX = projectVectorOntoPlane(targetX, targetY);
+      }
+
+      if (targetX.lengthSq() < 1e-8) {
+        targetX = projectVectorOntoPlane(WORLD_X.clone(), targetY);
+      }
+
+      targetX.normalize();
+      const targetZ = new THREE.Vector3().crossVectors(targetX, targetY).normalize();
+      const snapMatrix = new THREE.Matrix4().makeBasis(targetX, targetY, targetZ);
+      const snapQuat = new THREE.Quaternion().setFromRotationMatrix(snapMatrix).normalize();
+
+      return {
+        type: zDot >= 0 ? 'top' : 'bottom',
+        key: zDot >= 0 ? 'top-axis' : 'bottom-axis',
+        angle,
+        quat: snapQuat
+      };
+    }
+
+    function applySnapSlerp() {
+      if (!state.snapQuat) return;
+      state.orientation.slerp(state.snapQuat, 0.18);
+      if (angleBetweenQuats(state.orientation, state.snapQuat) < 0.0015) {
+        state.orientation.copy(state.snapQuat);
+        state.snapQuat = null;
+      }
+    }
+
+    function applyAngularMomentum() {
+      if (state.rotating) return;
+      if (state.angularSpeed > 1e-5) {
+        tempQuat.setFromAxisAngle(state.angularAxis, state.angularSpeed);
+        state.orientation.multiply(tempQuat).normalize();
+        state.angularSpeed *= ANGULAR_DAMP;
+      } else {
+        state.angularSpeed = 0;
+      }
+    }
+
+    function applyCamera() {
+      applySnapSlerp();
+      applyAngularMomentum();
+
+      state.target.add(state.panVel);
+      state.distance = Math.max(1.7, Math.min(12, state.distance + state.zoomVel));
+      state.panVel.multiplyScalar(PAN_DAMP);
+      state.zoomVel *= ZOOM_DAMP;
+
+      syncSceneMatrices();
+      camera.position.set(0, 0, state.distance);
+      camera.lookAt(rootGroup.position);
+      camera.updateMatrixWorld();
+      updateSnapFlags();
+    }
+
+    function maybeSnapView() {
+      const topBottom = getTopBottomSnapInfo();
+      if (topBottom.angle < SNAP_EPS) {
+        state.snapQuat = topBottom.quat;
+        return;
+      }
+
+      const { entry, angle } = nearestCanonicalSideView();
+      if (entry && angle < SNAP_EPS) {
+        state.snapQuat = entry.quat.clone();
+      }
+    }
+
+    function updateSnapFlags() {
+      const topBottom = getTopBottomSnapInfo();
+      const snappedTopBottom = topBottom.angle < 0.025;
+      state.snappedTopBottom = snappedTopBottom;
+      state.lastSnapKey = snappedTopBottom ? topBottom.key : null;
+      rotateLeftBtn.style.display = snappedTopBottom ? '' : 'none';
+      rotateRightBtn.style.display = snappedTopBottom ? '' : 'none';
+      viewLabels.style.display = 'block';
+      crosshair.style.display = snappedTopBottom ? 'block' : 'none';
+    }
+
+    function intersectSurface(event) {
+      syncSceneMatrices();
+      setNDCFromEvent(event);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(pickMesh, false);
+      return hits.length ? hits[0] : null;
+    }
+
+    function startPointDrag(event) {
+      const hit = intersectSurface(event);
+      if (!hit) return false;
+      state.draggingPoint = true;
+      viewport.classList.add('dragging-point');
+      applyHitToPoint(hit);
+      return true;
+    }
+
+    function startSurfaceRotate(event) {
+      const hit = intersectSurface(event);
+      if (!hit) return false;
+
+      const grabLocal = octaGroup.worldToLocal(hit.point.clone());
+      if (grabLocal.lengthSq() < 1e-8) return false;
+
+      state.rotating = true;
+      state.snapQuat = null;
+      state.angularSpeed = 0;
+      viewport.classList.add('rotating');
+      state.rotateGrabLocal = grabLocal.normalize();
+      state.rotateGrabFaceIndex = Number.isInteger(hit.faceIndex) ? hit.faceIndex : null;
+      state.rotateGrabFaceNormal = hit.face ? hit.face.normal.clone().normalize() : null;
+      state.rotateFallbackActive = false;
+      state.rotateGrabValid = true;
+      return true;
+    }
+
+    const ROTATE_DRAG_SCALE = 0.0065;
+
+    function applyScreenDeltaRotate(dx, dy) {
+      if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
+
+      const yawQuat = new THREE.Quaternion().setFromAxisAngle(WORLD_Y, dx * ROTATE_DRAG_SCALE);
+      const pitchQuat = new THREE.Quaternion().setFromAxisAngle(WORLD_X, dy * ROTATE_DRAG_SCALE);
+      tempQuat.copy(yawQuat).multiply(pitchQuat).normalize();
+
+      state.orientation.premultiply(tempQuat).normalize();
+      syncSceneMatrices();
+
+      const axis = tempVec3.set(tempQuat.x, tempQuat.y, tempQuat.z);
+      if (axis.lengthSq() > 1e-10) {
+        axis.normalize();
+        state.angularAxis.copy(axis);
+        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w)));
+      }
+    }
+
+    function isSameGrabbedRotateFace(hit) {
+      if (!hit || !hit.face) return false;
+
+      if (Number.isInteger(state.rotateGrabFaceIndex) && hit.faceIndex !== state.rotateGrabFaceIndex) {
+        return false;
+      }
+
+      if (state.rotateGrabFaceNormal) {
+        return hit.face.normal.dot(state.rotateGrabFaceNormal) > 0.999;
+      }
+
+      return true;
+    }
+
+    function applySurfaceRotate(event, dx = 0, dy = 0) {
+      if (!state.rotateGrabValid || !state.rotateGrabLocal) return;
+
+      if (state.rotateFallbackActive) {
+        applyScreenDeltaRotate(dx, dy);
+        return;
+      }
+
+      const hit = intersectSurface(event);
+
+      if (!isSameGrabbedRotateFace(hit)) {
+        state.rotateFallbackActive = true;
+        applyScreenDeltaRotate(dx, dy);
+        return;
+      }
+
+      const currentLocal = octaGroup.worldToLocal(hit.point.clone()).normalize();
+      if (currentLocal.lengthSq() < 1e-8 || state.rotateGrabLocal.lengthSq() < 1e-8) return;
+
+      tempQuat.setFromUnitVectors(state.rotateGrabLocal, currentLocal);
+      state.orientation.multiply(tempQuat).normalize();
+      syncSceneMatrices();
+
+      const axis = tempVec3.set(tempQuat.x, tempQuat.y, tempQuat.z);
+      if (axis.lengthSq() > 1e-10) {
+        axis.normalize();
+        state.angularAxis.copy(axis);
+        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w)));
+      }
+    }
+
+    function applyHitToPoint(hit) {
+      const localPoint = projectPointToOctaSurface(octaGroup.worldToLocal(hit.point.clone()));
+      state.point.copy(localPoint);
+      state.surfaceLocked = true;
+      if (Math.abs(localPoint.y) > 1e-6) state.stabilitySign = Math.sign(localPoint.y);
+      updatePointerNormalFromPoint();
+      controlsFromPoint(localPoint);
+      applyPointVisuals();
+      invalidateRender();
+    }
+
+    function projectWorldToScreen(worldPoint) {
+      const v = worldPoint.clone().project(camera);
+      return {
+        x: (v.x * 0.5 + 0.5) * window.innerWidth,
+        y: (-v.y * 0.5 + 0.5) * window.innerHeight,
+        visible: v.z > -1 && v.z <= 1
+      };
+    }
+
+    function projectLocalToScreen(localPoint) {
+      const worldPoint = octaGroup.localToWorld(localPoint.clone());
+      return projectWorldToScreen(worldPoint);
+    }
+
+    function isLabelOccluded(localPoint) {
+      const outerLocal = localPoint.clone().multiplyScalar(1.08);
+      const worldPoint = octaGroup.localToWorld(outerLocal);
+      const cameraPos = camera.getWorldPosition(new THREE.Vector3());
+      const dir = worldPoint.clone().sub(cameraPos);
+      const dist = dir.length();
+      if (dist < 1e-6) return false;
+
+      raycaster.set(cameraPos, dir.normalize());
+      const prevFar = raycaster.far;
+      raycaster.far = Math.max(0.001, dist - 0.03);
+      const hits = raycaster.intersectObject(pickMesh, false);
+      raycaster.far = prevFar;
+      return hits.length > 0;
+    }
+
+    function placeLabel(node, localPoint) {
+      const baseScreen = projectLocalToScreen(localPoint);
+      if (!baseScreen.visible) {
+        node.style.display = 'none';
+        return;
+      }
+
+      const outerScreen = projectLocalToScreen(localPoint.clone().multiplyScalar(1.22));
+      let dx = outerScreen.x - baseScreen.x;
+      let dy = outerScreen.y - baseScreen.y;
+
+      if (Math.hypot(dx, dy) < 0.001) {
+        const centerScreen = projectLocalToScreen(labelCenterLocal);
+        dx = baseScreen.x - centerScreen.x;
+        dy = baseScreen.y - centerScreen.y;
+      }
+
+      const len = Math.hypot(dx, dy) || 1;
+      const offset = state.snappedTopBottom ? 34 : 28;
+      const hidden = !state.snappedTopBottom && isLabelOccluded(localPoint);
+
+      node.style.display = hidden ? 'none' : 'block';
+      node.style.left = `${baseScreen.x + (dx / len) * offset}px`;
+      node.style.top = `${baseScreen.y + (dy / len) * offset}px`;
+      node.style.opacity = hidden ? '0' : '1';
+    }
+
+    function updateCrosshairAndLabels() {
+      if (state.snappedTopBottom) {
+        const pt2 = projectLocalToScreen(state.point);
+        crosshair.style.left = `${pt2.x}px`;
+        crosshair.style.top = `${pt2.y}px`;
+      }
+
+      for (const def of labelDefs) placeLabel(def.node, def.local);
+      updateTermLabels();
+    }
+
+
+
+
+    function buildSubdividedOctaSurfaceGeometry(resolution = 48) {
+      const positions = [];
+      const surfacePositions = [];
+      const normals = [];
+      const colors = [];
+      const alphas = [];
+      const signs = [-1, 1];
+      const invLen = 1 / Math.sqrt(3);
+      const surfaceLift = 0.006;
+
+      const makeVertex = (sx, sy, sz, i, j) => {
+        const a = i / resolution;
+        const b = j / resolution;
+        const c = 1 - a - b;
+        const nx = sx * invLen;
+        const ny = sy * invLen;
+        const nz = sz * invLen;
+        const px = sx * a;
+        const py = sy * b;
+        const pz = sz * c;
+
+        return {
+          px, py, pz,
+          nx, ny, nz,
+          vx: px * (1 + surfaceLift),
+          vy: py * (1 + surfaceLift),
+          vz: pz * (1 + surfaceLift)
+        };
+      };
+
+      const pushMadeVertex = (v) => {
+        positions.push(v.vx, v.vy, v.vz);
+        surfacePositions.push(v.px, v.py, v.pz);
+        normals.push(v.nx, v.ny, v.nz);
+        colors.push(1, 1, 1);
+        alphas.push(0);
+      };
+
+      const pushTriangle = (sx, sy, sz, a, b, c) => {
+        const outward = sx * sy * sz > 0;
+        if (outward) {
+          pushMadeVertex(a);
+          pushMadeVertex(b);
+          pushMadeVertex(c);
+        } else {
+          pushMadeVertex(a);
+          pushMadeVertex(c);
+          pushMadeVertex(b);
+        }
+      };
+
+      for (const sx of signs) {
+        for (const sy of signs) {
+          for (const sz of signs) {
+            for (let i = 0; i < resolution; i++) {
+              for (let j = 0; j < resolution - i; j++) {
+                const v00 = makeVertex(sx, sy, sz, i, j);
+                const v10 = makeVertex(sx, sy, sz, i + 1, j);
+                const v01 = makeVertex(sx, sy, sz, i, j + 1);
+                pushTriangle(sx, sy, sz, v00, v10, v01);
+
+                if (i + j < resolution - 1) {
+                  const v11 = makeVertex(sx, sy, sz, i + 1, j + 1);
+                  pushTriangle(sx, sy, sz, v10, v11, v01);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geom.setAttribute('surfacePosition', new THREE.Float32BufferAttribute(surfacePositions, 3));
+      geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+      // Color is computed per fragment in the shader from active sphere uniforms.
+      geom.computeBoundingSphere();
+      return geom;
+    }
+
+    function clampTermNumber(value, min, max, fallback) {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return fallback;
+      return THREE.MathUtils.clamp(parsed, min, max);
+    }
+
+    function screenBlendInto(base, color, weight = 1) {
+      const w = THREE.MathUtils.clamp(weight, 0, 1);
+      base.r = 1 - (1 - base.r) * (1 - color.r * w);
+      base.g = 1 - (1 - base.g) * (1 - color.g * w);
+      base.b = 1 - (1 - base.b) * (1 - color.b * w);
+      return base;
+    }
+
+    function updateTermHighlights() {
+      const visibleTerms = terms.filter((term) => term.visible && term.radius > 0);
+      const limitedTerms = visibleTerms.slice(0, MAX_SHADER_TERMS);
+      const uniforms = termHighlightMat.uniforms;
+
+      uniforms.termCount.value = limitedTerms.length;
+      for (let i = 0; i < MAX_SHADER_TERMS; i++) {
+        const term = limitedTerms[i];
+        if (term) {
+          uniforms.termCenters.value[i].copy(term.center);
+          uniforms.termColors.value[i].set(term.color);
+          uniforms.termRadii.value[i] = term.radius;
+        } else {
+          uniforms.termCenters.value[i].set(0, 0, 0);
+          uniforms.termColors.value[i].set(0xffffff);
+          uniforms.termRadii.value[i] = 0;
+        }
+      }
+
+      termHighlightMat.uniformsNeedUpdate = true;
+      invalidateRender();
+    }
+
+    function makeSphereObjects(term) {
+      const material = new THREE.MeshPhysicalMaterial({
+        color: term.color,
+        transparent: true,
+        opacity: 0.18,
+        roughness: 0.58,
+        metalness: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20), material);
+      mesh.renderOrder = 3;
+
+      const outline = new THREE.LineSegments(
+        new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 20, 10)),
+        new THREE.LineBasicMaterial({ color: term.color, transparent: true, opacity: 0.34, depthTest: true })
+      );
+      outline.renderOrder = 4;
+
+      const group = new THREE.Group();
+      group.add(mesh);
+      group.add(outline);
+      sphereLayer.add(group);
+
+      term.group = group;
+      term.mesh = mesh;
+      term.outline = outline;
+    }
+
+    function makeTermLabel(term) {
+      const label = document.createElement('div');
+      label.className = 'term-label';
+      label.textContent = term.name;
+      label.style.borderColor = term.color;
+      label.style.boxShadow = `0 10px 24px rgba(0,0,0,0.28), 0 0 18px ${term.color}33`;
+      termLabelLayer.appendChild(label);
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', term.color);
+      sphereLinkLayer.appendChild(line);
+
+      term.labelNode = label;
+      term.lineNode = line;
+
+      label.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const center = getTermScreenCenter(term);
+        labelDragState.term = term;
+        labelDragState.pointerId = event.pointerId;
+        labelDragState.dx = event.clientX - center.x - term.labelOffset.x;
+        labelDragState.dy = event.clientY - center.y - term.labelOffset.y;
+        label.classList.add('dragging');
+        label.setPointerCapture(event.pointerId);
+      });
+
+      label.addEventListener('pointermove', (event) => {
+        if (labelDragState.term !== term || labelDragState.pointerId !== event.pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const center = getTermScreenCenter(term);
+        term.labelOffset.x = event.clientX - center.x - labelDragState.dx;
+        term.labelOffset.y = event.clientY - center.y - labelDragState.dy;
+        term.labelManual = true;
+        updateTermLabels();
+      });
+
+      const endDrag = (event) => {
+        if (labelDragState.term !== term || labelDragState.pointerId !== event.pointerId) return;
+        label.classList.remove('dragging');
+        labelDragState.term = null;
+        labelDragState.pointerId = null;
+        try { label.releasePointerCapture(event.pointerId); } catch {}
+      };
+      label.addEventListener('pointerup', endDrag);
+      label.addEventListener('pointercancel', endDrag);
+    }
+
+    function makeTermRow(term) {
+      const row = document.createElement('div');
+      row.className = 'term-row';
+      row.dataset.termId = term.id;
+      row.innerHTML = `
+        <div class="term-row-main">
+          <input class="term-show" type="checkbox" ${term.visible ? 'checked' : ''} aria-label="Show sphere" />
+          <input class="term-input" type="text" value="" aria-label="Sphere name" />
+          <input class="term-color" type="color" value="${term.color}" aria-label="Sphere color" />
+          <button class="term-delete" type="button" aria-label="Delete sphere">×</button>
+        </div>
+        <div class="term-row-grid">
+          <div class="term-field"><label>X</label><input class="term-number term-x" type="number" min="-2" max="2" step="0.001" value="${formatCoordValue(term.center.x)}" /></div>
+          <div class="term-field"><label>Y</label><input class="term-number term-y" type="number" min="-2" max="2" step="0.001" value="${formatCoordValue(term.center.y)}" /></div>
+          <div class="term-field"><label>Z</label><input class="term-number term-z" type="number" min="-2" max="2" step="0.001" value="${formatCoordValue(term.center.z)}" /></div>
+          <div class="term-field"><label>Radius</label><input class="term-number term-radius" type="number" min="0.01" max="2.5" step="0.001" value="${term.radius.toFixed(3)}" /></div>
+        </div>
+      `;
+      sphereList.appendChild(row);
+
+      const nameInput = row.querySelector('.term-input');
+      const showInput = row.querySelector('.term-show');
+      const colorInput = row.querySelector('.term-color');
+      const xInput = row.querySelector('.term-x');
+      const yInput = row.querySelector('.term-y');
+      const zInput = row.querySelector('.term-z');
+      const radiusInput = row.querySelector('.term-radius');
+      const deleteBtn = row.querySelector('.term-delete');
+
+      nameInput.value = term.name;
+      nameInput.addEventListener('input', () => {
+        term.name = nameInput.value.trim() || `Sphere ${term.id}`;
+        term.labelNode.textContent = term.name;
+        updateTermLabels();
+      });
+
+      showInput.addEventListener('change', () => {
+        term.visible = showInput.checked;
+        refreshTermObject(term);
+        updateTermHighlights();
+        updateTermLabels();
+      });
+
+      colorInput.addEventListener('input', () => {
+        term.color = colorInput.value;
+        refreshTermObject(term);
+        updateTermHighlights();
+        updateTermLabels();
+      });
+
+      const applyNumbers = () => {
+        term.center.x = clampTermNumber(xInput.value, -2, 2, term.center.x);
+        term.center.y = clampTermNumber(yInput.value, -2, 2, term.center.y);
+        term.center.z = clampTermNumber(zInput.value, -2, 2, term.center.z);
+        term.radius = clampTermNumber(radiusInput.value, 0.01, 2.5, term.radius);
+        xInput.value = formatCoordValue(term.center.x);
+        yInput.value = formatCoordValue(term.center.y);
+        zInput.value = formatCoordValue(term.center.z);
+        radiusInput.value = term.radius.toFixed(3);
+        refreshTermObject(term);
+        updateTermHighlights();
+        updateTermLabels();
+      };
+
+      for (const input of [xInput, yInput, zInput, radiusInput]) {
+        input.addEventListener('input', () => {
+          term.center.x = clampTermNumber(xInput.value, -2, 2, term.center.x);
+          term.center.y = clampTermNumber(yInput.value, -2, 2, term.center.y);
+          term.center.z = clampTermNumber(zInput.value, -2, 2, term.center.z);
+          term.radius = clampTermNumber(radiusInput.value, 0.01, 2.5, term.radius);
+          refreshTermObject(term);
+          updateTermHighlights();
+          updateTermLabels();
+        });
+        input.addEventListener('blur', applyNumbers);
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            applyNumbers();
+            input.blur();
+          }
+        });
+      }
+
+      deleteBtn.addEventListener('click', () => deleteTermSphere(term.id));
+      term.rowNode = row;
+    }
+
+    function refreshTermObject(term) {
+      if (!term.group) return;
+      term.group.position.copy(term.center);
+      term.group.scale.setScalar(term.radius);
+      term.group.visible = term.visible;
+      term.mesh.material.color.set(term.color);
+      term.outline.material.color.set(term.color);
+      term.labelNode.textContent = term.name;
+      term.labelNode.style.borderColor = term.color;
+      term.labelNode.style.boxShadow = `0 10px 24px rgba(0,0,0,0.28), 0 0 18px ${term.color}33`;
+      term.lineNode.setAttribute('stroke', term.color);
+      invalidateRender();
+    }
+
+    function createTermSphere(options = {}) {
+      const activePoint = state.surfaceLocked ? state.point : new THREE.Vector3(0, 0, 0);
+      const id = nextTermId++;
+      const term = {
+        id,
+        name: options.name || `Term ${id}`,
+        color: options.color || TERM_PALETTE[(id - 1) % TERM_PALETTE.length],
+        center: (options.center || activePoint).clone(),
+        radius: options.radius ?? 0.35,
+        visible: options.visible ?? true,
+        labelOffset: options.labelOffset || { x: 96, y: -38 + ((id - 1) % 4) * 24 },
+        labelManual: false,
+        group: null,
+        mesh: null,
+        outline: null,
+        rowNode: null,
+        labelNode: null,
+        lineNode: null
+      };
+      terms.push(term);
+      makeSphereObjects(term);
+      makeTermLabel(term);
+      makeTermRow(term);
+      refreshTermObject(term);
+      renderEmptyTermState();
+      updateTermHighlights();
+      updateTermLabels();
+      return term;
+    }
+
+    function deleteTermSphere(id) {
+      const index = terms.findIndex((term) => term.id === id);
+      if (index < 0) return;
+      const [term] = terms.splice(index, 1);
+      if (term.group) {
+        sphereLayer.remove(term.group);
+        term.group.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+      }
+      term.rowNode?.remove();
+      term.labelNode?.remove();
+      term.lineNode?.remove();
+      renderEmptyTermState();
+      updateTermHighlights();
+      updateTermLabels();
+      invalidateRender();
+    }
+
+    function renderEmptyTermState() {
+      let empty = sphereList.querySelector('.term-empty');
+      if (terms.length === 0) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.className = 'term-empty';
+          empty.textContent = 'No term spheres yet. Add one, then set its center and radius.';
+          sphereList.appendChild(empty);
+        }
+      } else if (empty) {
+        empty.remove();
+      }
+    }
+
+    function getTermScreenCenter(term) {
+      const worldCenter = octaGroup.localToWorld(term.center.clone());
+      return projectWorldToScreen(worldCenter);
+    }
+
+    function getTermScreenRadius(term, centerScreen) {
+      const worldCenter = octaGroup.localToWorld(term.center.clone());
+      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+      const edgeWorld = worldCenter.clone().addScaledVector(cameraRight, term.radius);
+      const edgeScreen = projectWorldToScreen(edgeWorld);
+      return Math.max(8, Math.hypot(edgeScreen.x - centerScreen.x, edgeScreen.y - centerScreen.y));
+    }
+
+    function updateTermLabels() {
+      for (const term of terms) {
+        if (!term.visible) {
+          term.labelNode.style.display = 'none';
+          term.lineNode.style.display = 'none';
+          continue;
+        }
+
+        const center = getTermScreenCenter(term);
+        if (!center.visible) {
+          term.labelNode.style.display = 'none';
+          term.lineNode.style.display = 'none';
+          continue;
+        }
+
+        const radiusPx = getTermScreenRadius(term, center);
+        const labelX = THREE.MathUtils.clamp(center.x + term.labelOffset.x, 16, window.innerWidth - 16);
+        const labelY = THREE.MathUtils.clamp(center.y + term.labelOffset.y, 16, window.innerHeight - 16);
+        const dx = labelX - center.x;
+        const dy = labelY - center.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const anchorX = center.x + (dx / len) * radiusPx;
+        const anchorY = center.y + (dy / len) * radiusPx;
+
+        term.labelNode.style.display = 'block';
+        term.labelNode.style.left = `${labelX}px`;
+        term.labelNode.style.top = `${labelY}px`;
+        term.lineNode.style.display = 'block';
+        term.lineNode.setAttribute('x1', labelX);
+        term.lineNode.setAttribute('y1', labelY);
+        term.lineNode.setAttribute('x2', anchorX);
+        term.lineNode.setAttribute('y2', anchorY);
+      }
+    }
+
+    function setupTermSpheres() {
+      addSphereBtn.addEventListener('click', () => createTermSphere());
+      renderEmptyTermState();
+      createTermSphere({
+        name: 'Discernment',
+        color: '#5ad7ff',
+        center: new THREE.Vector3(0.22, 0.58, 0.2),
+        radius: 0.34,
+        labelOffset: { x: 110, y: -46 }
+      });
+      createTermSphere({
+        name: 'Wisdom',
+        color: '#ffd166',
+        center: new THREE.Vector3(-0.18, 0.38, 0.52),
+        radius: 0.31,
+        labelOffset: { x: -110, y: 38 }
+      });
+      requestAnimationFrame(() => {
+        console.assert(termHighlightMat.uniforms.termCount.value > 0, 'term sphere intersection shader has visible term uniforms');
+      });
+    }
+
+    function resetView() {
+      state.snapQuat = makeCanonicalQuat(Math.PI / 4, -0.55);
+      state.angularSpeed = 0;
+      state.panVel.set(0, 0, 0);
+      state.zoomVel = 0;
+      state.target.set(0, 0, 0);
+      state.surfaceLocked = false;
+      state.stabilitySign = 1;
+      practicalityEl.value = '50';
+      wisdomEl.value = '50';
+      stabilityEl.value = '0';
+      applyPointFromControls();
+      invalidateRender();
+    }
+
+    function rotateTopView(dir) {
+      if (!state.snappedTopBottom) return;
+      const base = state.snapQuat ? state.snapQuat.clone() : state.orientation.clone();
+      const delta = new THREE.Quaternion().setFromAxisAngle(WORLD_Z, dir * Math.PI / 2);
+      state.snapQuat = delta.multiply(base).normalize();
+    }
+
+    function runSelfTests() {
+      const eps = 1e-6;
+      const near = (a, b, msg) => console.assert(Math.abs(a - b) < eps, msg + ` | got ${a}, expected ${b}`);
+      const truthy = (v, msg) => console.assert(!!v, msg);
+
+      state.surfaceLocked = false;
+      practicalityEl.value = '50'; wisdomEl.value = '50'; stabilityEl.value = '0';
+      let p = pointFromControls();
+      near(p.x, 0, 'initial center x');
+      near(p.y, 0, 'initial center y');
+      near(p.z, 0, 'initial center z');
+
+      state.surfaceLocked = true;
+      state.stabilitySign = 1;
+      practicalityEl.value = '50'; wisdomEl.value = '50';
+      p = pointFromControls();
+      near(p.x, 0, 'balanced positive x');
+      near(p.y, 1, 'balanced positive y');
+      near(p.z, 0, 'balanced positive z');
+
+      state.stabilitySign = -1;
+      p = pointFromControls();
+      near(p.y, -1, 'balanced negative y');
+
+      state.stabilitySign = 1;
+      practicalityEl.value = '100'; wisdomEl.value = '50';
+      p = pointFromControls();
+      near(p.x, 1, 'empathy max x');
+      near(p.y, 0, 'empathy max y');
+      near(p.z, 0, 'empathy max z');
+
+      practicalityEl.value = '0'; wisdomEl.value = '50';
+      p = pointFromControls();
+      near(p.x, -1, 'practicality max x');
+      near(p.y, 0, 'practicality max y');
+      near(p.z, 0, 'practicality max z');
+
+      practicalityEl.value = '50'; wisdomEl.value = '0';
+      p = pointFromControls();
+      near(p.x, 0, 'wisdom max x');
+      near(p.y, 0, 'wisdom max y');
+      near(p.z, 1, 'wisdom max z');
+
+      practicalityEl.value = '50'; wisdomEl.value = '100';
+      p = pointFromControls();
+      near(p.x, 0, 'knowledge max x');
+      near(p.y, 0, 'knowledge max y');
+      near(p.z, -1, 'knowledge max z');
+
+      practicalityEl.value = '75'; wisdomEl.value = '50';
+      p = pointFromControls();
+      near(p.x, 0.5, 'mid empathy x');
+      near(p.y, 0.5, 'mid empathy y');
+      near(p.z, 0, 'mid empathy z');
+
+      practicalityEl.value = '100'; wisdomEl.value = '0';
+      p = pointFromControls();
+      near(p.x, 0.5, 'dual max x projected');
+      near(p.y, 0, 'dual max y projected');
+      near(p.z, 0.5, 'dual max z projected');
+
+      controlsFromPoint(new THREE.Vector3(0.5, 0.5, 0));
+      near(parseFloat(practicalityEl.value), 75, 'inverse practicality-axis slider from surface point');
+      near(parseFloat(wisdomEl.value), 50, 'inverse wisdom from surface point');
+      near(parseFloat(stabilityEl.value), 50, 'inverse stability from surface point');
+
+      controlsFromPoint(new THREE.Vector3(0, 0, 1));
+      near(parseFloat(wisdomEl.value), 0, 'inverse wisdom slider reaches left for wisdom');
+
+      controlsFromPoint(new THREE.Vector3(0, 0, -1));
+      near(parseFloat(wisdomEl.value), 100, 'inverse wisdom slider reaches right for knowledge');
+
+      const projected = projectPointToOctaSurface(new THREE.Vector3(0.2, 0.2, 0));
+      near(projected.x, 0.5, 'projected drag point x');
+      near(projected.y, 0.5, 'projected drag point y');
+      near(projected.z, 0, 'projected drag point z');
+      truthy(getOctaSurfaceNormal(new THREE.Vector3(0.5, 0.5, 0)).distanceTo(new THREE.Vector3(1, 1, 0).normalize()) < eps, 'drag normal matches octa face');
+
+      state.point.set(0, 1, 0);
+      let manual = rebalancePointFromAxis('x', -0.4);
+      near(manual.x, -0.4, 'coord edit x keeps edited value');
+      near(manual.y, 0.6, 'coord edit x rebalances y');
+      near(manual.z, 0, 'coord edit x keeps z at zero');
+
+      state.point.set(0.5, 0.5, 0);
+      manual = rebalancePointFromAxis('z', 0.25);
+      near(manual.x, 0.375, 'coord edit z rescales x');
+      near(manual.y, 0.375, 'coord edit z rescales y');
+      near(manual.z, 0.25, 'coord edit z keeps edited z');
+      truthy(formatCoordValue(-0.4) === '-0.400', 'coord format pads leading zero and decimals');
+
+      const qTop = makeCanonicalQuat(0, -Math.PI / 2);
+      truthy(getTopBottomSnapInfo(qTop).type === 'top', 'top-bottom snapping recognizes top');
+
+      stabilityEl.value = '0';
+      updateStabilityLabels();
+      truthy(!negativeStabilityLabel.classList.contains('active'), 'negative label inactive at zero');
+      truthy(!positiveStabilityLabel.classList.contains('active'), 'positive label inactive at zero');
+    }
+
+    renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+    renderer.domElement.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      state.zoomVel += e.deltaY * 0.0016;
+    }, { passive: false });
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      state.lastX = e.clientX;
+      state.lastY = e.clientY;
+
+      if (e.button === 0) {
+        if (startPointDrag(e)) {
+          e.preventDefault();
+          renderer.domElement.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+
+      if (e.button === 2) {
+        if (startSurfaceRotate(e)) {
+          e.preventDefault();
+          renderer.domElement.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+
+      if (e.button === 1) {
+        e.preventDefault();
+        return;
+      }
+    });
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      const dx = e.clientX - state.lastX;
+      const dy = e.clientY - state.lastY;
+
+      if (state.draggingPoint) {
+        const hit = intersectSurface(e);
+        if (hit) applyHitToPoint(hit);
+        state.lastX = e.clientX;
+        state.lastY = e.clientY;
+        return;
+      }
+
+      if (state.rotating) {
+        applySurfaceRotate(e, dx, dy);
+        state.lastX = e.clientX;
+        state.lastY = e.clientY;
+        invalidateRender();
+        return;
+      }
+
+      state.lastX = e.clientX;
+      state.lastY = e.clientY;
+    });
+
+    function endPointer(e) {
+      invalidateRender();
+      if (state.draggingPoint) {
+        state.draggingPoint = false;
+        viewport.classList.remove('dragging-point');
+      }
+      if (state.rotating) {
+        state.rotating = false;
+        state.rotateGrabLocal = null;
+        state.rotateGrabFaceIndex = null;
+        state.rotateGrabFaceNormal = null;
+        state.rotateFallbackActive = false;
+        state.rotateGrabValid = false;
+        viewport.classList.remove('rotating');
+        maybeSnapView();
+      }
+      try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
+    }
+
+    renderer.domElement.addEventListener('pointerup', endPointer);
+    renderer.domElement.addEventListener('pointercancel', endPointer);
+
+    resetBtn.addEventListener('click', resetView);
+    rotateLeftBtn.addEventListener('click', () => { rotateTopView(-1); invalidateRender(); });
+    rotateRightBtn.addEventListener('click', () => { rotateTopView(1); invalidateRender(); });
+
+    window.addEventListener('resize', () => {
+      invalidateRender();
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
+      if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
+      invalidateRender();
+    });
+
+    function setPointFromExternal(profileData) {
+      if (!profileData || typeof profileData !== 'object') return;
+      const point = profileData?.data?.point;
+      if (!point || typeof point !== 'object') return;
+      const x = Number(point.x);
+      const y = Number(point.y);
+      const z = Number(point.z);
+      if (![x, y, z].every(Number.isFinite)) return;
+      state.point.set(x, y, z);
+      state.surfaceLocked = Math.abs(x) + Math.abs(y) + Math.abs(z) > 0.0001;
+      if (Math.abs(y) > 1e-6) state.stabilitySign = Math.sign(y);
+      updatePointerNormalFromPoint();
+      applyPointVisuals();
+      controlsFromPoint(state.point);
+      invalidateRender();
+    }
+
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'set-profile') {
+        setPointFromExternal(event.data.data);
+      }
+    });
+
+    let needsRender = true;
+
+    function invalidateRender() {
+      needsRender = true;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const moving =
+        state.rotating ||
+        state.draggingPoint ||
+        Boolean(state.snapQuat) ||
+        state.angularSpeed > 1e-5 ||
+        state.panVel.lengthSq() > 1e-6 ||
+        Math.abs(state.zoomVel) > 1e-5;
+
+      if (!moving && !needsRender) {
+        return;
+      }
+
+      applyCamera();
+      pointerMarker.visible = !state.snappedTopBottom;
+      updateCrosshairAndLabels();
+      renderer.render(scene, camera);
+      needsRender = moving;
+    }
+
+    installSliderTooltips();
+    installAspectTooltips();
+    setupSliders();
+    setupCoordInputs();
+    setupTermSpheres();
+    applyPointFromControls();
+    resetView();
+    runSelfTests();
+    invalidateRender();
+    animate();
+  </script>
+</body>
+</html>
