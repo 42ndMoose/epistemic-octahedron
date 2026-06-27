@@ -870,58 +870,92 @@
     const ATLAS_VERTEX_EPS = 0.006;
     const ATLAS_BAND = 1 / 7;
     const ATLAS_BORDER_LIMIT = ATLAS_BAND;
+    const ATLAS_STRONG_START = ATLAS_BAND * 2;
     const ATLAS_HIGHER_START = ATLAS_BAND * 3;
+    const ATLAS_STRONG_HIGHER_START = ATLAS_BAND * 4;
     const ATLAS_NEAR_VERTEX_START = ATLAS_BAND * 5;
+    const ATLAS_STRONG_NEAR_VERTEX_START = ATLAS_BAND * 6;
 
     const WORLDVIEW_LABELS = {
       E: {
-        borderline: ['Sensitive', 'Sensitivity is the equatorial E-side tendency: harm, unfairness, emotional temperature, and interpersonal signals register quickly. It is not yet victimhood, but it can become reactive when feeling outruns reality-contact or practical restraint.'],
-        positive: ['Empathetic', 'Empathy here means active concern for persons while still preserving basic contact with facts and consequences. The person can feel the human stake of a situation without turning every discomfort into proof of harm.'],
-        higher: ['Stable compassion / regulated empathy', 'Care becomes more useful, bounded, and reality-aware: the person can help without needing a victim identity, a villain story, or emotional excess to justify concern.'],
-        negative: ['Victimhood fixation', 'Empathy turned into grievance-identity. The person may interpret disagreement, limits, or discomfort as injury, then use suffering as a shield against correction.'],
-        deeper: ['Despairing nihilist', 'A deeper E-lane collapse where suffering becomes the organizing lens and meaning, agency, or truth stop repairing the frame.']
+        borderline: ['Approval-sensitive', 'They pick up emotional pressure, approval signals, and social tension quickly. They tend to overread reactions when their reality-contact is not strong enough.'],
+        positive: ['Empathetic', 'They show active concern for people while still preserving some contact with facts and consequences.'],
+        strongPositive: ['Compassionate', 'Their empathy is more stable and useful: care is active without needing every discomfort to become proof of harm.'],
+        higherPositive: ['Calibrated empathy', 'They care without losing proportion. They can notice suffering without turning every discomfort into proof of harm.'],
+        strongHigherPositive: ['Clear-eyed compassion', 'They are compassionate while still staying reality-bound. They can help people without needing a victim story, villain story, or emotional performance.'],
+        negative: ['Main-character victimhood', 'They interpret discomfort, disagreement, or limits as personal injury. They tend to make suffering the center of the story.'],
+        strongNegative: ['Grievance-core identity', 'They organize their identity around injury, resentment, or being wronged. Correction feels like an attack because the grievance has become self-protective.'],
+        deeperNegative: ['Doomer', 'They see decline, suffering, or failure as the main frame. They tend to lose agency because the negative pattern feels total.'],
+        strongDeeperNegative: ['Resentful doomer', 'They combine despair with blame. They tend to treat collapse as proof that resentment was justified.']
       },
       W: {
-        borderline: ['Hesitant / over-reflective', 'The equatorial W-side tendency: the person sees complexity, consequences, and nuance, but may stall before judgment.'],
-        positive: ['Wise / discerning', 'Judgment under uncertainty. The person can separate signal from noise, resist cheap certainty, and choose a proportionate response without needing perfect information.'],
-        higher: ['Integrated wisdom', 'Mature judgment that has absorbed human concern, practical constraint, and evidence without becoming vague.'],
-        negative: ['Pseudo-wisdom', 'Wisdom-like language without the burden of reality: slogans, moral theater, or detached generalities avoid evidence, tradeoffs, and correction.'],
-        deeper: ['Manipulator', 'Enough social or moral insight to steer people, but used to control perception rather than clarify truth.']
+        borderline: ['Analysis-locked', 'They see too many angles at once and can get stuck before acting. They tend to confuse more reflection with better judgment.'],
+        positive: ['Discerning', 'They can separate signal from noise and make proportionate judgments without needing perfect information.'],
+        strongPositive: ['Judicious', 'Their judgment is steadier and more context-aware under uncertainty.'],
+        higherPositive: ['Balanced judgment', 'They weigh context, limits, evidence, and consequences without becoming vague. They typically know when to pause, when to act, and when to revise.'],
+        strongHigherPositive: ['Steady judgment', 'They are hard to pull into panic, slogans, or cheap certainty. Their judgment tends to stay proportionate under pressure.'],
+        negative: ['Fake-deep discernment', 'They sound reflective, symbolic, or profound, but the insight is not strongly tied to reality. They tend to turn vagueness into authority.'],
+        strongNegative: ['Fake-deep certainty', 'They use depth-language to protect beliefs from correction. They typically treat their interpretation as superior even when evidence is weak.'],
+        deeperNegative: ['Narrative spinner', 'They are good at framing events in ways that steer perception. They tend to shape the story before they face the truth.'],
+        strongDeeperNegative: ['Gaslight strategist', 'They use interpretation, social pressure, or selective context to make others doubt reality. They tend to control the frame instead of answering to the facts.']
       },
       P: {
-        borderline: ['Blunt', 'The equatorial P-side tendency: the person moves toward function, constraints, and action quickly, but may miss tone, emotional cost, or moral context.'],
-        positive: ['Practical', 'Respect for what works, what costs something, and what can actually be done. Good intentions are not confused with workable solutions.'],
-        higher: ['Grounded effectiveness', 'Execution, prioritization, and tradeoffs while preserving truth, human stakes, and long-term judgment.'],
-        negative: ['Callous pragmatism', 'Practicality cut loose from empathy and wisdom. Coldness gets treated as realism and unnecessary harm as efficiency.'],
-        deeper: ['Opportunist', 'Constraints, incentives, and openings are read well, but mainly to take advantage rather than serve truth or responsibility.']
+        borderline: ['No-filter realist', 'They move straight toward what seems obvious, workable, or true. They typically miss tone, timing, and the human cost of saying it badly.'],
+        positive: ['Practical', 'They respect what works, what costs something, and what can actually be done.'],
+        strongPositive: ['Grounded', 'They are more reliably anchored in constraint, tradeoff, and workable execution.'],
+        higherPositive: ['Effective realism', 'They care about what actually works, what costs something, and what survives contact with reality. They do not confuse good intentions with good results.'],
+        strongHigherPositive: ['Locked-in execution', 'They act with discipline, priority, and follow-through. They can execute without turning efficiency into coldness.'],
+        negative: ['Outcome-only realism', 'They treat results, control, or efficiency as the whole story. They tend to excuse unnecessary harm by calling it realism.'],
+        strongNegative: ['Ruthless operator', 'They understand incentives and constraints, but empathy and accountability have been pushed out. They can be effective while becoming destructive.'],
+        deeperNegative: ['Clout opportunist', 'They read incentives and openings quickly, especially social reward. They tend to chase advantage before responsibility.'],
+        strongDeeperNegative: ['Predatory opportunist', "They use systems, incentives, and other people's weakness for gain. They typically understand the game well enough to exploit it."]
       },
       K: {
-        borderline: ['Defensive / status-sensitive', 'The equatorial K-side tendency: knowledge, correctness, credentials, or being seen as informed become emotionally loaded.'],
-        positive: ['Informed', 'Facts are present and usable, with some awareness of what is known, unknown, and uncertain.'],
-        higher: ['Evidence-grounded clarity', 'Knowledge stabilized by context and correction. Facts clarify reality rather than protect status.'],
-        negative: ['Defensive pseudo-knowledge', 'Facts, jargon, credentials, or selective data become armor; finding truth quietly gives way to protecting the image of being right.'],
-        deeper: ['Malicious rationalizer', 'Information becomes a weapon: fragments of knowledge excuse resentment, deception, contempt, or harm.']
+        borderline: ['Status-defensive', 'They care too much about looking informed, correct, or respected. They tend to protect their image before they protect the truth.'],
+        positive: ['Informed', 'They have usable facts and some awareness of what is known, unknown, and uncertain.'],
+        strongPositive: ['Knowledgeable', 'They can bring more developed knowledge to bear without fully replacing judgment with expertise.'],
+        higherPositive: ['Evidence-backed clarity', 'They use facts to clarify reality rather than to protect ego. They tend to update when better evidence arrives.'],
+        strongHigherPositive: ['Reality-tracking expertise', 'They know the subject and can still be corrected by reality. Their expertise helps judgment instead of replacing it.'],
+        negative: ['Factoid defensiveness', 'They use facts, trivia, jargon, or technical fragments as armor. They tend to look for winning points instead of truth.'],
+        strongNegative: ['Confidently-wrong expertise', 'They present themselves as informed while missing context, limits, or correction. They tend to mistake fluency for understanding.'],
+        deeperNegative: ['Bad-faith rationalizer', 'They use reasons after the fact to excuse what they already wanted. They tend to make self-serving choices look principled.'],
+        strongDeeperNegative: ['Weaponized rationalizer', 'They turn facts, logic, or technical language into a tool for evasion or attack. They use reasoning to protect distortion instead of correction.']
       },
       EW: {
-        borderline: ['Naive idealist', 'Concern with moral intuition, but not enough constraint from evidence and practicality.'],
-        positive: ['Compassionate discernment', 'Care guided by judgment: it notices suffering while asking what is true, what helps, what harms, and what responsibility requires.'],
-        negative: ['Pathological altruist', 'Help becomes detached from reality and can become coercive, indulgent, enabling, or self-flattering.']
+        borderline: ['Good-vibes idealist', 'They want the humane or hopeful answer to be true. They tend to underrate constraint, tradeoff, and ugly facts.'],
+        positive: ['Compassionate discernment', 'They notice suffering, but they also ask what is true, what helps, what harms, and what responsibility requires.'],
+        strongPositive: ['Principled compassion', 'They stay humane without becoming soft, gullible, or performative. Their care is guided by judgment, not by emotional pressure alone.'],
+        negative: ['Savior-complex altruist', 'They want to help, but the helping becomes self-flattering, controlling, or reality-detached. They tend to need the role of rescuer.'],
+        strongNegative: ['Coercive savior', 'They use care-language to pressure, control, or override others. They tend to justify force by calling it compassion.']
       },
       WP: {
-        borderline: ['Guarded skeptic', 'Judgment with practical caution, sometimes holding back too much.'],
-        positive: ['Stoic resolve', 'Disciplined acceptance of reality joined to practical action.'],
-        negative: ['Strategic bad actor', 'Discipline and judgment remain effective, but detach from truth and human concern.']
+        borderline: ['Trust-locked skeptic', 'They stay guarded because they expect hidden motives, weak reasoning, or bad incentives. They can protect themselves from nonsense, but they may also block correction.'],
+        positive: ['Strategic restraint', 'They can hold back because timing, context, and consequence matter. They do not treat every impulse to act as wisdom.'],
+        strongPositive: ['Disciplined strategy', 'They understand when to move, when to wait, and what tradeoffs matter. They stay practical without losing context or accountability.'],
+        negative: ['Power-gamer strategist', 'They understand people, timing, and systems, but use that insight mainly to win. They tend to treat reality as a board to manipulate.'],
+        strongNegative: ['Predatory power-gamer', 'They combine strategy with low accountability. They typically use people, narratives, and incentives as pieces.']
       },
       PK: {
-        borderline: ['Cold technician', 'Facts and function are strong, but the human and wisdom dimensions are thin.'],
-        positive: ['Technical pragmatist', 'Evidence joined with execution: builds, tests, measures, and adjusts while keeping claims accountable.'],
-        negative: ['Self-sealing conspiracist', 'Pattern-detection, selected facts, and practical suspicion form a closed loop that absorbs counterevidence.']
+        borderline: ['Systems-only operator', 'They understand facts, systems, tools, and function, but the human and wisdom dimensions are thin. People like them can solve the mechanism while missing the meaning.'],
+        positive: ['Competent operator', 'They know how to get things done. They usually read systems, incentives, and constraints well.'],
+        strongPositive: ['High-agency operator', 'They are unusually effective at turning knowledge into action. They can move through complex systems without needing constant permission.'],
+        negative: ['Logic-bro rationalizer', 'They use logic as a shield against empathy, context, or accountability. They tend to confuse emotional detachment with objectivity.'],
+        strongNegative: ['Self-sealing logic-bro', 'They build a closed reasoning loop that absorbs counterevidence. They typically use logic-language to avoid being corrected.']
       },
       KE: {
-        borderline: ['Impressionable advocate / credential-gullible', 'Concern plus information, but too easily pulled by sources, credentials, statistics, or emotionally charged narratives.'],
-        positive: ['Informed compassion', 'Care disciplined by evidence: asks what is true, who is affected, and whether the proposed help actually works.'],
-        negative: ['Radical activist', 'Moral urgency combines with selected knowledge until identity and cause overpower correction.']
+        borderline: ['Credential-chasing advocate', 'They care about people, but they lean too hard on approved sources, expert signals, statistics, and institutional language. They tend to outsource judgment to whatever looks authoritative.'],
+        positive: ['Informed advocacy', 'They care about affected people and use evidence to guide that concern. They tend to ask whether the proposed help actually works.'],
+        strongPositive: ['Humane expertise', 'They combine knowledge with concern for people. They can handle technical reality without becoming detached from human consequences.'],
+        negative: ['Credentialed virtue-signaler', 'They combine approved knowledge with moral performance. They tend to borrow authority from credentials, causes, or institutions instead of showing mature judgment.'],
+        strongNegative: ['Scripted zealot', 'They speak from a preloaded cause, ideology, or moral script. They tend to repeat the frame even when reality pushes against it.']
       }
+    };
+
+    const INTEGRATED_LABELS = {
+      positive: ['Philosophically mature / integrated', 'This is broad positive integration: empathy, practicality, wisdom, and knowledge are correcting each other instead of collapsing into one identity-fixed style.'],
+      strongPositive: ['Near-peak integrated maturity', 'This is near-peak integration: the worldview is highly reality-responsive, context-flexible, and balanced across the octahedron.'],
+      negative: ['Brainrot collapse', 'They are pulled into a low-reality loop where fragments, vibes, slogans, and emotional reward replace judgment. Their worldview stops repairing itself.'],
+      strongNegative: ['Near-total reality collapse', 'They are close to full epistemic breakdown. Their beliefs still have a recognizable flavor, but correction has very little power.']
     };
 
     function percentText(value) {
@@ -934,7 +968,7 @@
       const ax = Math.abs(point.x);
       const az = Math.abs(point.z);
       const lateral = ax + az;
-      if (lateral < 1e-5) return { code: 'center', kind: 'center', dominant: 'Center' };
+      if (lateral < 1e-5) return { code: 'ewpk', kind: 'center', dominant: 'Integrated center' };
       const xPole = point.x >= 0 ? 'E' : 'P';
       const zPole = point.z >= 0 ? 'W' : 'K';
       const xName = xPole === 'E' ? 'Empathy' : 'Practicality';
@@ -947,6 +981,20 @@
       if (xPole === 'P' && zPole === 'K') code = 'PK';
       if (xPole === 'E' && zPole === 'K') code = 'KE';
       return { code, kind: 'blend', dominant: `${xName} + ${zName}` };
+    }
+
+    function higherLaneCode(code) {
+      if (code === 'E') return 'Ekw';
+      if (code === 'W') return 'W ep';
+      if (code === 'P') return 'P wk';
+      if (code === 'K') return 'Kep';
+      return code;
+    }
+
+    function displayRegionCode(code) {
+      if (code === 'WP') return 'W P';
+      if (code === 'ewpk') return 'ewpk';
+      return code;
     }
 
     function positiveHeightNote(heightPercent) {
@@ -969,51 +1017,70 @@
       return { label, pillClass, region, meaning };
     }
 
+    function labelEntry(set, key, fallbackKey = key) {
+      return set?.[key] || set?.[fallbackKey] || ['Unlabeled region', 'This region has not been assigned a modern label yet.'];
+    }
+
     function classifyWorldview(point) {
       const ax = Math.abs(point.x);
       const ay = Math.abs(point.y);
       const az = Math.abs(point.z);
       const lateral = ax + az;
       const lateralInfo = getWorldviewLateral(point);
-      const labels = WORLDVIEW_LABELS[lateralInfo.code] || null;
-      const fallback = {
-        borderline: ['Borderline center', 'Unresolved tension near the equator more than a mature or collapsed direction.'],
-        positive: ['Generally stable integration', 'Positive stability without a clean single flavor.'],
-        higher: ['Generally mature integration', 'High positive stability near the upper region.'],
-        negative: ['Generalized distortion', 'Negative stability without a clean single flavor.'],
-        deeper: ['Generalized delusional collapse', 'Near-collapse territory where the whole worldview is pulled downward.']
-      };
-      const set = labels || fallback;
+      const code = lateralInfo.code;
+      const set = WORLDVIEW_LABELS[code] || null;
 
       if (ax + ay + az < 1e-5) {
         return makeWorldviewEntry('Origin / null state', 'origin', 'Center', 'The origin is reserved for pre-philosophical absence. No active worldview has formed strongly enough to be plotted on the surface.');
       }
       if (Math.abs(point.y - 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
-        return makeWorldviewEntry('Objective peak philosophical maturity', 'peak', 'Upper vertex', 'Empathy, practicality, wisdom, and knowledge are integrated under maximal positive epistemic stability.');
+        return makeWorldviewEntry('Objective peak philosophical maturity', 'peak', 'Top vertex', 'This is the exact upper vertex: empathy, practicality, wisdom, and knowledge are integrated under maximal positive epistemic stability.');
       }
       if (Math.abs(point.y + 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
-        return makeWorldviewEntry('Pure epistemic collapse', 'collapse', 'Lower vertex', 'Maximal active negative epistemic stability. Lateral flavor is no longer diagnostically useful.');
+        return makeWorldviewEntry('Pure epistemic collapse', 'collapse', 'Lower vertex', 'They are maximally detached from reality-governed correction. At this point, the specific lateral style matters less than the collapse itself.');
       }
       if (ay <= ATLAS_BORDER_LIMIT) {
-        const entry = set.borderline || fallback.borderline;
-        return makeWorldviewEntry(entry[0], 'borderline', `${lateralInfo.dominant} · equatorial`, entry[1]);
+        const entry = labelEntry(set, 'borderline');
+        return makeWorldviewEntry(entry[0], 'borderline', `Borderline ${displayRegionCode(code)}`, entry[1]);
       }
+
       if (point.y > 0) {
         const stability = point.y * 100;
-        if (point.y >= ATLAS_NEAR_VERTEX_START) {
-          return makeWorldviewEntry('Generally mature integration', 'peak', `${percentText(stability)} positive stability`, 'Near-peak territory: generally mature because lateral imbalance is weak and integration is high.');
+        if (point.y >= ATLAS_NEAR_VERTEX_START || code === 'ewpk') {
+          const strong = point.y >= ATLAS_STRONG_NEAR_VERTEX_START;
+          const entry = strong ? INTEGRATED_LABELS.strongPositive : INTEGRATED_LABELS.positive;
+          return makeWorldviewEntry(entry[0], strong ? 'peak' : 'higher-positive', `${strong ? 'Strong ' : ''}Positive ewpk · ${percentText(stability)} positive stability`, entry[1]);
         }
-        const higher = lateralInfo.kind === 'lane' && point.y >= ATLAS_HIGHER_START;
-        const entry = higher ? (set.higher || set.positive || fallback.higher) : (set.positive || fallback.positive);
-        return makeWorldviewEntry(entry[0], higher ? 'higher-positive' : 'positive', `${lateralInfo.dominant} · ${percentText(stability)} positive stability`, `${entry[1]} ${positiveHeightNote(stability)}`);
+
+        if (lateralInfo.kind === 'lane' && point.y >= ATLAS_HIGHER_START) {
+          const strong = point.y >= ATLAS_STRONG_HIGHER_START;
+          const entry = labelEntry(set, strong ? 'strongHigherPositive' : 'higherPositive', 'higherPositive');
+          const regionCode = higherLaneCode(code);
+          return makeWorldviewEntry(entry[0], strong ? 'higher-positive' : 'positive', `${strong ? 'Strong ' : ''}Positive ${regionCode} · ${percentText(stability)} positive stability`, `${entry[1]} ${positiveHeightNote(stability)}`);
+        }
+
+        const strong = point.y >= ATLAS_STRONG_START;
+        const entry = labelEntry(set, strong ? 'strongPositive' : 'positive', 'positive');
+        return makeWorldviewEntry(entry[0], strong ? 'higher-positive' : 'positive', `${strong ? 'Strong ' : ''}Positive ${displayRegionCode(code)} · ${percentText(stability)} positive stability`, `${entry[1]} ${positiveHeightNote(stability)}`);
       }
+
       const depth = -point.y * 100;
-      if (point.y <= -ATLAS_NEAR_VERTEX_START) {
-        return makeWorldviewEntry('Generalized delusional collapse', 'collapse', `${percentText(depth)} negative depth`, `Lateral flavor is no longer the main story; the whole worldview is being pulled into generalized reality-failure. ${negativeDepthNote(depth)}`);
+      if (point.y <= -ATLAS_NEAR_VERTEX_START || code === 'ewpk') {
+        const strong = -point.y >= ATLAS_STRONG_NEAR_VERTEX_START;
+        const entry = strong ? INTEGRATED_LABELS.strongNegative : INTEGRATED_LABELS.negative;
+        return makeWorldviewEntry(entry[0], strong ? 'collapse' : 'deep-negative', `${strong ? 'Strong ' : ''}Negative ewpk · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
       }
-      const deeper = lateralInfo.kind === 'lane' && -point.y >= ATLAS_HIGHER_START;
-      const entry = deeper ? (set.deeper || set.negative || fallback.deeper) : (set.negative || fallback.negative);
-      return makeWorldviewEntry(entry[0], deeper ? 'deep-negative' : 'negative', `${lateralInfo.dominant} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
+
+      if (lateralInfo.kind === 'lane' && -point.y >= ATLAS_HIGHER_START) {
+        const strong = -point.y >= ATLAS_STRONG_HIGHER_START;
+        const entry = labelEntry(set, strong ? 'strongDeeperNegative' : 'deeperNegative', 'deeperNegative');
+        const regionCode = higherLaneCode(code);
+        return makeWorldviewEntry(entry[0], strong ? 'deep-negative' : 'negative', `${strong ? 'Strong ' : ''}Negative ${regionCode} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
+      }
+
+      const strong = -point.y >= ATLAS_STRONG_START;
+      const entry = labelEntry(set, strong ? 'strongNegative' : 'negative', 'negative');
+      return makeWorldviewEntry(entry[0], strong ? 'deep-negative' : 'negative', `${strong ? 'Strong ' : ''}Negative ${displayRegionCode(code)} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
     }
 
     function mixChannel(a, b, t) {
@@ -1489,8 +1556,8 @@
       truthy(!negativeStabilityLabel.classList.contains('active'), 'negative label inactive at zero');
       truthy(!positiveStabilityLabel.classList.contains('active'), 'positive label inactive at zero');
       truthy(classifyWorldview(new THREE.Vector3(0, 0, 0)).label === 'Origin / null state', 'worldview classifier recognizes origin');
-      truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Sensitive', 'worldview classifier recognizes empathy equator');
-      truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Empathetic', 'worldview classifier recognizes positive empathy lane');
+      truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Approval-sensitive', 'worldview classifier recognizes empathy equator');
+      truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Calibrated empathy', 'worldview classifier recognizes higher empathy lane');
       truthy(worldviewColorForPoint(new THREE.Vector3(0, -1, 0)) === '#dc2626', 'worldview color reaches collapse red');
       truthy(worldviewColorForPoint(new THREE.Vector3(1, 0, 0)) === '#6b7280', 'worldview color reaches equator gray');
       truthy(worldviewColorForPoint(new THREE.Vector3(0, 1, 0)) === '#2563eb', 'worldview color reaches peak blue');
