@@ -1,0 +1,158 @@
+Epistemic Octahedron modern labels + meanings
+
+Format:
+Current label -> Better modern label
+Meaning: ...
+
+Sensitive -> Approval-sensitive
+Meaning: They pick up emotional pressure, approval signals, and social tension quickly. They tend to overread reactions when their reality-contact is not strong enough.
+
+Hesitant / over-reflective -> Analysis-locked
+Meaning: They see too many angles at once and can get stuck before acting. They tend to confuse more reflection with better judgment.
+
+Blunt -> No-filter realist
+Meaning: They move straight toward what seems obvious, workable, or true. They typically miss tone, timing, and the human cost of saying it badly.
+
+Defensive / status-sensitive -> Status-defensive
+Meaning: They care too much about looking informed, correct, or respected. They tend to protect their image before they protect the truth.
+
+Naive idealist -> Good-vibes idealist
+Meaning: They want the humane or hopeful answer to be true. They tend to underrate constraint, tradeoff, and ugly facts.
+
+Guarded skeptic -> Trust-locked skeptic
+Meaning: They stay guarded because they expect hidden motives, weak reasoning, or bad incentives. They can protect themselves from nonsense, but they may also block correction.
+
+Cold technician -> Systems-only operator
+Meaning: They understand facts, systems, tools, and function, but the human and wisdom dimensions are thin. People like them can solve the mechanism while missing the meaning.
+
+Impressionable advocate / credential-gullible -> Credential-chasing advocate
+Meaning: They care about people, but they lean too hard on approved sources, expert signals, statistics, and institutional language. They tend to outsource judgment to whatever looks authoritative.
+
+Regulated empathy -> Calibrated empathy
+Meaning: They care without losing proportion. They can notice suffering without turning every discomfort into proof of harm.
+
+Mature compassion -> Clear-eyed compassion
+Meaning: They are compassionate while still staying reality-bound. They can help people without needing a victim story, villain story, or emotional performance.
+
+Balanced discernment -> Balanced judgment
+Meaning: They weigh context, limits, evidence, and consequences without becoming vague. They typically know when to pause, when to act, and when to revise.
+
+Settled judgment -> Steady judgment
+Meaning: They are hard to pull into panic, slogans, or cheap certainty. Their judgment tends to stay proportionate under pressure.
+
+Grounded effectiveness -> Effective realism
+Meaning: They care about what actually works, what costs something, and what survives contact with reality. They do not confuse good intentions with good results.
+
+Disciplined execution -> Locked-in execution
+Meaning: They act with discipline, priority, and follow-through. They can execute without turning efficiency into coldness.
+
+Evidence-grounded clarity -> Evidence-backed clarity
+Meaning: They use facts to clarify reality rather than to protect ego. They tend to update when better evidence arrives.
+
+Truth-tracking expertise -> Reality-tracking expertise
+Meaning: They know the subject and can still be corrected by reality. Their expertise helps judgment instead of replacing it.
+
+Compassionate discernment -> Compassionate discernment
+Meaning: They notice suffering, but they also ask what is true, what helps, what harms, and what responsibility requires.
+
+Principled compassion -> Principled compassion
+Meaning: They stay humane without becoming soft, gullible, or performative. Their care is guided by judgment, not by emotional pressure alone.
+
+Strategic restraint -> Strategic restraint
+Meaning: They can hold back because timing, context, and consequence matter. They do not treat every impulse to act as wisdom.
+
+Disciplined strategy -> Disciplined strategy
+Meaning: They understand when to move, when to wait, and what tradeoffs matter. They stay practical without losing context or accountability.
+
+Effective operator -> Competent operator
+Meaning: They know how to get things done. They usually read systems, incentives, and constraints well.
+
+High-competence instrumentalist -> High-agency operator
+Meaning: They are unusually effective at turning knowledge into action. They can move through complex systems without needing constant permission.
+
+Evidence-informed concern -> Informed advocacy
+Meaning: They care about affected people and use evidence to guide that concern. They tend to ask whether the proposed help actually works.
+
+Humane expertise -> Humane expertise
+Meaning: They combine knowledge with concern for people. They can handle technical reality without becoming detached from human consequences.
+
+Victimhood fixation -> Main-character victimhood
+Meaning: They interpret discomfort, disagreement, or limits as personal injury. They tend to make suffering the center of the story.
+
+Grievance identity -> Grievance-core identity
+Meaning: They organize their identity around injury, resentment, or being wronged. Correction feels like an attack because the grievance has become self-protective.
+
+Pseudo-discernment / false profundity -> Fake-deep discernment
+Meaning: They sound reflective, symbolic, or profound, but the insight is not strongly tied to reality. They tend to turn vagueness into authority.
+
+Dogmatic pseudo-discernment -> Fake-deep certainty
+Meaning: They use depth-language to protect beliefs from correction. They typically treat their interpretation as superior even when evidence is weak.
+
+Callous pragmatism -> Outcome-only realism
+Meaning: They treat results, control, or efficiency as the whole story. They tend to excuse unnecessary harm by calling it realism.
+
+Ruthless pragmatism -> Ruthless operator
+Meaning: They understand incentives and constraints, but empathy and accountability have been pushed out. They can be effective while becoming destructive.
+
+Defensive pseudo-knowledge -> Factoid defensiveness
+Meaning: They use facts, trivia, jargon, or technical fragments as armor. They tend to look for winning points instead of truth.
+
+Arrogant pseudo-expertise -> Confidently-wrong expertise
+Meaning: They present themselves as informed while missing context, limits, or correction. They tend to mistake fluency for understanding.
+
+Despairing nihilist -> Doomer
+Meaning: They see decline, suffering, or failure as the main frame. They tend to lose agency because the negative pattern feels total.
+
+Nihilistic resentment -> Resentful doomer
+Meaning: They combine despair with blame. They tend to treat collapse as proof that resentment was justified.
+
+Manipulative interpreter -> Narrative spinner
+Meaning: They are good at framing events in ways that steer perception. They tend to shape the story before they face the truth.
+
+Coercive manipulator -> Gaslight strategist
+Meaning: They use interpretation, social pressure, or selective context to make others doubt reality. They tend to control the frame instead of answering to the facts.
+
+Opportunist -> Clout opportunist
+Meaning: They read incentives and openings quickly, especially social reward. They tend to chase advantage before responsibility.
+
+Predatory opportunist -> Predatory opportunist
+Meaning: They use systems, incentives, and other people's weakness for gain. They typically understand the game well enough to exploit it.
+
+Malicious rationalizer -> Bad-faith rationalizer
+Meaning: They use reasons after the fact to excuse what they already wanted. They tend to make self-serving choices look principled.
+
+Weaponized rationalizer -> Weaponized rationalizer
+Meaning: They turn facts, logic, or technical language into a tool for evasion or attack. They use reasoning to protect distortion instead of correction.
+
+Pathological altruist -> Savior-complex altruist
+Meaning: They want to help, but the helping becomes self-flattering, controlling, or reality-detached. They tend to need the role of rescuer.
+
+Coercive altruist -> Coercive savior
+Meaning: They use care-language to pressure, control, or override others. They tend to justify force by calling it compassion.
+
+Manipulative strategist -> Power-gamer strategist
+Meaning: They understand people, timing, and systems, but use that insight mainly to win. They tend to treat reality as a board to manipulate.
+
+Predatory strategist -> Predatory power-gamer
+Meaning: They combine strategy with low accountability. They typically use people, narratives, and incentives as pieces.
+
+Cold rationalizer -> Logic-bro rationalizer
+Meaning: They use logic as a shield against empathy, context, or accountability. They tend to confuse emotional detachment with objectivity.
+
+Self-sealing rationalizer -> Self-sealing logic-bro
+Meaning: They build a closed reasoning loop that absorbs counterevidence. They typically use logic-language to avoid being corrected.
+
+Credential-driven moralist -> Credentialed virtue-signaler
+Meaning: They combine approved knowledge with moral performance. They tend to borrow authority from credentials, causes, or institutions instead of showing mature judgment.
+
+Ideological zealot -> Scripted zealot
+Meaning: They speak from a preloaded cause, ideology, or moral script. They tend to repeat the frame even when reality pushes against it.
+
+Generalized delusional collapse -> Brainrot collapse
+Meaning: They are pulled into a low-reality loop where fragments, vibes, slogans, and emotional reward replace judgment. Their worldview stops repairing itself.
+
+Near-total epistemic collapse -> Near-total reality collapse
+Meaning: They are close to full epistemic breakdown. Their beliefs still have a recognizable flavor, but correction has very little power.
+
+Pure epistemic collapse -> Pure epistemic collapse
+Meaning: They are maximally detached from reality-governed correction. At this point, the specific lateral style matters less than the collapse itself.
