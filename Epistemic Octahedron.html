@@ -398,6 +398,8 @@
       uiMode: 'plot',
       activePointers: new Map(),
       gestureRotating: false,
+      continuingGestureRotate: false,
+      continuedGesturePointerId: null,
       lastGestureCenter: null,
       lastGestureDistance: 0
     };
@@ -1509,6 +1511,8 @@
       state.rotateFallbackActive = false;
       state.rotateGrabValid = false;
       state.gestureRotating = true;
+      state.continuingGestureRotate = false;
+      state.continuedGesturePointerId = null;
       state.snapQuat = null;
       state.angularSpeed = 0;
       const metrics = getGestureMetrics();
@@ -1531,13 +1535,49 @@
       return true;
     }
 
-    function endMultiTouchGestureIfNeeded() {
-      if (!state.gestureRotating || state.activePointers.size >= 2) return;
+    function continueGestureWithRemainingPointer() {
+      const [entry] = state.activePointers.entries();
+      if (!entry) return false;
+      const [pointerId, point] = entry;
       state.gestureRotating = false;
+      state.continuingGestureRotate = true;
+      state.continuedGesturePointerId = pointerId;
       state.lastGestureCenter = null;
       state.lastGestureDistance = 0;
+      state.lastX = point.x;
+      state.lastY = point.y;
+      viewport.classList.add('rotating');
+      return true;
+    }
+
+    function endContinuedGestureRotate() {
+      state.continuingGestureRotate = false;
+      state.continuedGesturePointerId = null;
       viewport.classList.remove('rotating');
       maybeSnapView();
+    }
+
+    function endMultiTouchGestureIfNeeded() {
+      if (state.gestureRotating && state.activePointers.size === 1) {
+        continueGestureWithRemainingPointer();
+        return true;
+      }
+
+      if (state.gestureRotating && state.activePointers.size < 2) {
+        state.gestureRotating = false;
+        state.lastGestureCenter = null;
+        state.lastGestureDistance = 0;
+        viewport.classList.remove('rotating');
+        maybeSnapView();
+        return false;
+      }
+
+      if (state.continuingGestureRotate && state.activePointers.size === 0) {
+        endContinuedGestureRotate();
+        return false;
+      }
+
+      return state.gestureRotating || state.continuingGestureRotate;
     }
     renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
     renderer.domElement.addEventListener('wheel', (e) => {
@@ -1595,6 +1635,15 @@
       const dx = e.clientX - state.lastX;
       const dy = e.clientY - state.lastY;
 
+      if (state.continuingGestureRotate && e.pointerId === state.continuedGesturePointerId) {
+        applyScreenDeltaRotate(dx, dy);
+        state.lastX = e.clientX;
+        state.lastY = e.clientY;
+        invalidateRender();
+        e.preventDefault();
+        return;
+      }
+
       if (state.draggingPoint) {
         const hit = intersectSurface(e);
         if (hit) applyHitToPoint(hit);
@@ -1617,9 +1666,9 @@
 
     function endPointer(e) {
       forgetPointer(e);
-      endMultiTouchGestureIfNeeded();
+      const gestureStillActive = endMultiTouchGestureIfNeeded();
       invalidateRender();
-      if (state.gestureRotating) return;
+      if (gestureStillActive) return;
       if (state.draggingPoint) {
         state.draggingPoint = false;
         viewport.classList.remove('dragging-point');
@@ -1689,6 +1738,7 @@
       const moving =
         state.rotating ||
         state.draggingPoint ||
+        state.continuingGestureRotate ||
         Boolean(state.snapQuat) ||
         state.angularSpeed > 1e-5 ||
         state.panVel.lengthSq() > 1e-6 ||
