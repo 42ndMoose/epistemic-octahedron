@@ -409,7 +409,11 @@
     const SNAP_EPS = THREE.MathUtils.degToRad(10);
     const PAN_DAMP = 0.82;
     const ZOOM_DAMP = 0.86;
-    const ANGULAR_DAMP = 0.9;
+    const ANGULAR_DAMP = 0.94;
+    const THROW_SPEED_MULTIPLIER = 1.18;
+    const FREE_SPIN_UPRIGHT_STRENGTH = 0.018;
+    const FREE_SPIN_AXIS_UPRIGHT_BLEND = 0.018;
+    const FREE_SPIN_STABILIZE_SPEED = 0.00035;
     const POINT_DRAG_DELAY_MS = 115;
     const CANONICAL_VIEWS = [];
     const CANONICAL_SIDE_VIEWS = [];
@@ -1185,11 +1189,38 @@
       }
     }
 
+    function applyFreeSpinUprightStabilizer() {
+      if (state.angularSpeed < FREE_SPIN_STABILIZE_SPEED) return;
+
+      const currentUp = WORLD_Y.clone().applyQuaternion(state.orientation).normalize();
+      const upDot = THREE.MathUtils.clamp(currentUp.dot(WORLD_Y), -1, 1);
+
+      if (upDot < 0.9995) {
+        const correctionAxis = new THREE.Vector3().crossVectors(currentUp, WORLD_Y);
+        if (correctionAxis.lengthSq() < 1e-8) {
+          correctionAxis.copy(WORLD_X);
+        }
+        correctionAxis.normalize();
+
+        const correctionAngle = Math.acos(upDot);
+        const speedBoost = THREE.MathUtils.clamp(state.angularSpeed * 90, 0.25, 2.4);
+        const correctionStep = Math.min(correctionAngle, FREE_SPIN_UPRIGHT_STRENGTH * speedBoost);
+        tempQuat.setFromAxisAngle(correctionAxis, correctionStep).normalize();
+        state.orientation.premultiply(tempQuat).normalize();
+      }
+
+      if (state.angularAxis.lengthSq() > 1e-10) {
+        const uprightSpinAxis = state.angularAxis.dot(WORLD_Y) < 0 ? WORLD_Y.clone().negate() : WORLD_Y.clone();
+        state.angularAxis.lerp(uprightSpinAxis, FREE_SPIN_AXIS_UPRIGHT_BLEND).normalize();
+      }
+    }
+
     function applyAngularMomentum() {
       if (state.rotating || state.gestureRotating || state.continuingGestureRotate) return;
       if (state.angularSpeed > 1e-5) {
-        tempQuat.setFromAxisAngle(state.angularAxis, state.angularSpeed);
+        tempQuat.setFromAxisAngle(state.angularAxis, state.angularSpeed).normalize();
         state.orientation.multiply(tempQuat).normalize();
+        applyFreeSpinUprightStabilizer();
         state.angularSpeed *= ANGULAR_DAMP;
       } else {
         state.angularSpeed = 0;
@@ -1318,7 +1349,7 @@
       if (axis.lengthSq() > 1e-10) {
         axis.normalize();
         state.angularAxis.copy(axis);
-        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w)));
+        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w))) * THROW_SPEED_MULTIPLIER;
       }
     }
 
@@ -1363,7 +1394,7 @@
       if (axis.lengthSq() > 1e-10) {
         axis.normalize();
         state.angularAxis.copy(axis);
-        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w)));
+        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w))) * THROW_SPEED_MULTIPLIER;
       }
     }
 
@@ -1640,19 +1671,34 @@
       return delta;
     }
 
-    function applyScreenRoll(deltaAngle) {
+    function applyScreenRoll(deltaAngle, recordMomentum = false) {
       if (!Number.isFinite(deltaAngle) || Math.abs(deltaAngle) < 1e-6) return;
 
       const cameraForward = camera.getWorldDirection(new THREE.Vector3()).normalize();
       tempQuat.setFromAxisAngle(cameraForward, deltaAngle).normalize();
       state.orientation.premultiply(tempQuat).normalize();
       syncSceneMatrices();
-      state.angularSpeed = 0;
+
+      if (recordMomentum) {
+        const rollAxis = deltaAngle < 0 ? cameraForward.negate() : cameraForward;
+        const rollSpeed = Math.abs(deltaAngle) * THROW_SPEED_MULTIPLIER;
+        if (rollSpeed >= state.angularSpeed * 0.65) {
+          state.angularAxis.copy(rollAxis).normalize();
+          state.angularSpeed = rollSpeed;
+        }
+      }
     }
 
-    function applyGestureZoom(distanceDelta) {
-      if (!Number.isFinite(distanceDelta) || Math.abs(distanceDelta) < 0.01) return;
-      state.distance = Math.max(1.7, Math.min(12, state.distance + distanceDelta * 0.006));
+    function applyGestureZoomScale(logScale) {
+      if (!Number.isFinite(logScale)) return;
+
+      const ZOOM_LOG_DEADZONE = 0.006;
+      const ZOOM_LOG_SENSITIVITY = 0.9;
+      const magnitude = Math.abs(logScale);
+      if (magnitude <= ZOOM_LOG_DEADZONE) return;
+
+      const filtered = Math.sign(logScale) * (magnitude - ZOOM_LOG_DEADZONE);
+      state.distance = Math.max(1.7, Math.min(12, state.distance * Math.exp(-filtered * ZOOM_LOG_SENSITIVITY)));
       state.zoomVel = 0;
     }
 
@@ -1686,21 +1732,19 @@
       const metrics = getGestureMetrics();
       const lastCenter = state.lastGestureCenter || metrics.center;
       const angleDelta = shortestAngleDelta(metrics.angle, state.lastGestureAngle);
-      const distanceDelta = state.lastGestureDistance - metrics.distance;
       const centerDx = metrics.center.x - lastCenter.x;
       const centerDy = metrics.center.y - lastCenter.y;
 
-      // Two-finger motion is decomposed into three independent gestures:
-      // center movement rotates the object, finger-vector angle twists it,
-      // and distance changes zoom only when the user is mainly pinching.
-      applyScreenDeltaRotate(centerDx, centerDy, false);
-      applyScreenRoll(angleDelta);
+      // Treat two fingers as one similarity transform, not as competing modes.
+      // The same gesture frame can rotate by center movement, roll by finger-pair
+      // angle, and zoom by finger-pair scale at the same time.
+      state.angularSpeed = 0;
+      applyScreenDeltaRotate(centerDx, centerDy, true);
+      applyScreenRoll(angleDelta, true);
 
-      if (state.lastGestureDistance > 0) {
-        const twistPixels = Math.abs(angleDelta) * Math.max(metrics.distance, state.lastGestureDistance);
-        const pinchPixels = Math.abs(distanceDelta);
-        const mainlyPinching = twistPixels < Math.max(1.5, pinchPixels * 0.55);
-        if (mainlyPinching) applyGestureZoom(distanceDelta);
+      if (state.lastGestureDistance > 0 && metrics.distance > 0) {
+        const logScale = Math.log(metrics.distance / state.lastGestureDistance);
+        applyGestureZoomScale(logScale);
       }
 
       state.lastGestureCenter = metrics.center;
@@ -1729,9 +1773,12 @@
     function endContinuedGestureRotate() {
       state.continuingGestureRotate = false;
       state.continuedGesturePointerId = null;
-      state.angularSpeed = 0;
       viewport.classList.remove('rotating');
-      maybeSnapView();
+      if (state.angularSpeed < 0.0005) {
+        maybeSnapView();
+      } else {
+        state.snapQuat = null;
+      }
     }
 
     function endMultiTouchGestureIfNeeded() {
@@ -1745,9 +1792,12 @@
         state.lastGestureCenter = null;
         state.lastGestureDistance = 0;
         state.lastGestureAngle = 0;
-        state.angularSpeed = 0;
         viewport.classList.remove('rotating');
-        maybeSnapView();
+        if (state.angularSpeed < 0.0005) {
+          maybeSnapView();
+        } else {
+          state.snapQuat = null;
+        }
         return false;
       }
 
@@ -1822,7 +1872,7 @@
       const dy = e.clientY - state.lastY;
 
       if (state.continuingGestureRotate && e.pointerId === state.continuedGesturePointerId) {
-        applyScreenDeltaRotate(dx, dy, false);
+        applyScreenDeltaRotate(dx, dy, true);
         state.lastX = e.clientX;
         state.lastY = e.clientY;
         invalidateRender();
