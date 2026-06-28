@@ -399,6 +399,8 @@
       gestureRotating: false,
       continuingGestureRotate: false,
       continuedGesturePointerId: null,
+      pendingPointDragTimer: null,
+      pendingPointPointerId: null,
       lastGestureCenter: null,
       lastGestureDistance: 0
     };
@@ -407,6 +409,7 @@
     const PAN_DAMP = 0.82;
     const ZOOM_DAMP = 0.86;
     const ANGULAR_DAMP = 0.9;
+    const POINT_DRAG_DELAY_MS = 115;
     const CANONICAL_VIEWS = [];
     const CANONICAL_SIDE_VIEWS = [];
 
@@ -1566,6 +1569,32 @@
     }
 
 
+
+    function clearPendingPointDrag() {
+      if (state.pendingPointDragTimer) {
+        clearTimeout(state.pendingPointDragTimer);
+        state.pendingPointDragTimer = null;
+      }
+      state.pendingPointPointerId = null;
+    }
+
+    function schedulePointDrag(event) {
+      clearPendingPointDrag();
+      state.pendingPointPointerId = event.pointerId;
+      state.pendingPointDragTimer = window.setTimeout(() => {
+        const point = state.activePointers.get(event.pointerId);
+        if (!point || state.activePointers.size !== 1 || state.gestureRotating || state.continuingGestureRotate) {
+          clearPendingPointDrag();
+          return;
+        }
+
+        state.lastX = point.x;
+        state.lastY = point.y;
+        startPointDrag({ clientX: point.x, clientY: point.y });
+        clearPendingPointDrag();
+      }, POINT_DRAG_DELAY_MS);
+    }
+
     function rememberPointer(event) {
       state.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     }
@@ -1595,6 +1624,7 @@
 
     function beginMultiTouchGesture() {
       if (state.activePointers.size < 2) return;
+      clearPendingPointDrag();
       if (state.draggingPoint) {
         state.draggingPoint = false;
         viewport.classList.remove('dragging-point');
@@ -1689,6 +1719,7 @@
 
       if (state.activePointers.size >= 2) {
         e.preventDefault();
+        clearPendingPointDrag();
         beginMultiTouchGesture();
         return;
       }
@@ -1698,6 +1729,12 @@
       const wantsPlot = primaryPointer;
 
       if (wantsPlot) {
+        if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+          e.preventDefault();
+          schedulePointDrag(e);
+          return;
+        }
+
         if (startPointDrag(e)) {
           e.preventDefault();
           return;
@@ -1760,10 +1797,12 @@
     });
 
     function endPointer(e) {
+      if (state.pendingPointPointerId === e.pointerId) clearPendingPointDrag();
       forgetPointer(e);
       const gestureStillActive = endMultiTouchGestureIfNeeded();
       invalidateRender();
       if (gestureStillActive) return;
+      clearPendingPointDrag();
       if (state.draggingPoint) {
         state.draggingPoint = false;
         viewport.classList.remove('dragging-point');
