@@ -383,6 +383,8 @@
       orientation: new THREE.Quaternion(),
       angularAxis: new THREE.Vector3(0, 1, 0),
       angularSpeed: 0,
+      uprightVel: new THREE.Vector3(),
+      uprightStabilizerArmed: false,
       snapQuat: null,
       rotateGrabLocal: null,
       rotateGrabFaceIndex: null,
@@ -409,7 +411,15 @@
     const SNAP_EPS = THREE.MathUtils.degToRad(10);
     const PAN_DAMP = 0.82;
     const ZOOM_DAMP = 0.86;
-    const ANGULAR_DAMP = 0.9;
+    const ANGULAR_DAMP = 0.955;
+    const THROW_SPEED_MULTIPLIER = 1.18;
+    const THROW_RELEASE_MIN_SPEED = 0.010;
+    const SNAP_RELEASE_MAX_SPEED = 0.026;
+    const FREE_SPIN_SLEEP_SPEED = 0.00035;
+    const FREE_SPIN_UPRIGHT_WAKE_SPEED = 0.010;
+    const FREE_SPIN_UPRIGHT_SPRING = 0.00085;
+    const FREE_SPIN_UPRIGHT_DAMP = 0.965;
+    const FREE_SPIN_UPRIGHT_MAX_STEP = 0.018;
     const POINT_DRAG_DELAY_MS = 115;
     const CANONICAL_VIEWS = [];
     const CANONICAL_SIDE_VIEWS = [];
@@ -1176,6 +1186,12 @@
       };
     }
 
+    function startSoftSnap(quat) {
+      state.snapQuat = quat.clone().normalize();
+      state.angularSpeed = 0;
+      resetUprightStabilizer();
+    }
+
     function applySnapSlerp() {
       if (!state.snapQuat) return;
       state.orientation.slerp(state.snapQuat, 0.18);
@@ -1185,15 +1201,95 @@
       }
     }
 
+    function resetUprightStabilizer() {
+      state.uprightVel.set(0, 0, 0);
+      state.uprightStabilizerArmed = false;
+    }
+
+    function armUprightStabilizer() {
+      state.uprightStabilizerArmed = true;
+      state.uprightVel.set(0, 0, 0);
+      state.snapQuat = null;
+    }
+
+    function settleThrowAfterRelease() {
+      const topBottom = getTopBottomSnapInfo();
+      const nearTopBottomSnap = topBottom.angle < SNAP_EPS;
+      const slowEnoughForSnap = state.angularSpeed < SNAP_RELEASE_MAX_SPEED;
+
+      if (nearTopBottomSnap && slowEnoughForSnap) {
+        startSoftSnap(topBottom.quat);
+        return false;
+      }
+
+      if (state.angularSpeed < THROW_RELEASE_MIN_SPEED) {
+        state.angularSpeed = 0;
+        resetUprightStabilizer();
+        state.snapQuat = null;
+        return false;
+      }
+
+      armUprightStabilizer();
+      return true;
+    }
+
+    function applyFreeSpinUprightStabilizer() {
+      if (!state.uprightStabilizerArmed) return;
+
+      const topBottom = getTopBottomSnapInfo();
+      if (topBottom.angle < SNAP_EPS && state.angularSpeed < SNAP_RELEASE_MAX_SPEED) {
+        startSoftSnap(topBottom.quat);
+        return;
+      }
+
+      const correctionSpeed = state.uprightVel.length();
+      if (state.angularSpeed < FREE_SPIN_UPRIGHT_WAKE_SPEED && correctionSpeed < FREE_SPIN_SLEEP_SPEED) {
+        resetUprightStabilizer();
+        return;
+      }
+
+      const currentUp = WORLD_Y.clone().applyQuaternion(state.orientation).normalize();
+      const errorAxis = new THREE.Vector3().crossVectors(currentUp, WORLD_Y);
+      const errorAxisLen = errorAxis.length();
+      const upDot = THREE.MathUtils.clamp(currentUp.dot(WORLD_Y), -1, 1);
+
+      if (errorAxisLen > 1e-8) {
+        errorAxis.multiplyScalar(1 / errorAxisLen);
+        const correctionAngle = Math.atan2(errorAxisLen, upDot);
+        const momentumFactor = state.angularSpeed >= FREE_SPIN_UPRIGHT_WAKE_SPEED
+          ? THREE.MathUtils.clamp(state.angularSpeed / FREE_SPIN_UPRIGHT_WAKE_SPEED, 0.35, 1.65)
+          : 0;
+        if (momentumFactor > 0) {
+          state.uprightVel.addScaledVector(errorAxis, correctionAngle * FREE_SPIN_UPRIGHT_SPRING * momentumFactor);
+        }
+      }
+
+      state.uprightVel.multiplyScalar(FREE_SPIN_UPRIGHT_DAMP);
+
+      const step = state.uprightVel.length();
+      if (step > FREE_SPIN_UPRIGHT_MAX_STEP) {
+        state.uprightVel.multiplyScalar(FREE_SPIN_UPRIGHT_MAX_STEP / step);
+      }
+
+      const appliedStep = state.uprightVel.length();
+      if (appliedStep > FREE_SPIN_SLEEP_SPEED) {
+        tempQuat.setFromAxisAngle(state.uprightVel.clone().normalize(), appliedStep).normalize();
+        state.orientation.premultiply(tempQuat).normalize();
+      }
+    }
+
     function applyAngularMomentum() {
       if (state.rotating || state.gestureRotating || state.continuingGestureRotate) return;
-      if (state.angularSpeed > 1e-5) {
-        tempQuat.setFromAxisAngle(state.angularAxis, state.angularSpeed);
+
+      if (state.angularSpeed > FREE_SPIN_SLEEP_SPEED) {
+        tempQuat.setFromAxisAngle(state.angularAxis, state.angularSpeed).normalize();
         state.orientation.multiply(tempQuat).normalize();
         state.angularSpeed *= ANGULAR_DAMP;
       } else {
         state.angularSpeed = 0;
       }
+
+      applyFreeSpinUprightStabilizer();
     }
 
     function applyCamera() {
@@ -1215,14 +1311,17 @@
     function maybeSnapView() {
       const topBottom = getTopBottomSnapInfo();
       if (topBottom.angle < SNAP_EPS) {
-        state.snapQuat = topBottom.quat;
-        return;
+        startSoftSnap(topBottom.quat);
+        return true;
       }
 
       const { entry, angle } = nearestCanonicalSideView();
       if (entry && angle < SNAP_EPS) {
-        state.snapQuat = entry.quat.clone();
+        startSoftSnap(entry.quat);
+        return true;
       }
+
+      return false;
     }
 
     function setPanelMode(mode) {
@@ -1274,6 +1373,7 @@
       state.rotating = true;
       state.snapQuat = null;
       state.angularSpeed = 0;
+      resetUprightStabilizer();
       viewport.classList.add('rotating');
       state.rotateGrabLocal = grabLocal.normalize();
       state.rotateGrabFaceIndex = Number.isInteger(hit.faceIndex) ? hit.faceIndex : null;
@@ -1311,6 +1411,7 @@
 
       if (!recordMomentum) {
         state.angularSpeed = 0;
+        resetUprightStabilizer();
         return;
       }
 
@@ -1318,7 +1419,7 @@
       if (axis.lengthSq() > 1e-10) {
         axis.normalize();
         state.angularAxis.copy(axis);
-        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w)));
+        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w))) * THROW_SPEED_MULTIPLIER;
       }
     }
 
@@ -1363,7 +1464,7 @@
       if (axis.lengthSq() > 1e-10) {
         axis.normalize();
         state.angularAxis.copy(axis);
-        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w)));
+        state.angularSpeed = 2 * Math.acos(Math.min(1, Math.max(-1, tempQuat.w))) * THROW_SPEED_MULTIPLIER;
       }
     }
 
@@ -1449,6 +1550,7 @@
     function resetView() {
       state.snapQuat = makeCanonicalQuat(Math.PI / 4, -0.55);
       state.angularSpeed = 0;
+      resetUprightStabilizer();
       state.panVel.set(0, 0, 0);
       state.zoomVel = 0;
       state.target.set(0, 0, 0);
@@ -1465,7 +1567,7 @@
       if (!state.snappedTopBottom) return;
       const base = state.snapQuat ? state.snapQuat.clone() : state.orientation.clone();
       const delta = new THREE.Quaternion().setFromAxisAngle(WORLD_Z, dir * Math.PI / 2);
-      state.snapQuat = delta.multiply(base).normalize();
+      startSoftSnap(delta.multiply(base).normalize());
     }
 
     function runSelfTests() {
@@ -1640,14 +1742,22 @@
       return delta;
     }
 
-    function applyScreenRoll(deltaAngle) {
+    function applyScreenRoll(deltaAngle, recordMomentum = false) {
       if (!Number.isFinite(deltaAngle) || Math.abs(deltaAngle) < 1e-6) return;
 
       const cameraForward = camera.getWorldDirection(new THREE.Vector3()).normalize();
       tempQuat.setFromAxisAngle(cameraForward, deltaAngle).normalize();
       state.orientation.premultiply(tempQuat).normalize();
       syncSceneMatrices();
-      state.angularSpeed = 0;
+
+      if (recordMomentum) {
+        const rollAxis = deltaAngle < 0 ? cameraForward.negate() : cameraForward;
+        const rollSpeed = Math.abs(deltaAngle) * THROW_SPEED_MULTIPLIER;
+        if (rollSpeed >= state.angularSpeed * 0.65) {
+          state.angularAxis.copy(rollAxis).normalize();
+          state.angularSpeed = rollSpeed;
+        }
+      }
     }
 
     function applyGestureZoomScale(logScale) {
@@ -1681,6 +1791,7 @@
       state.continuedGesturePointerId = null;
       state.snapQuat = null;
       state.angularSpeed = 0;
+      resetUprightStabilizer();
       const metrics = getGestureMetrics();
       state.lastGestureCenter = metrics.center;
       state.lastGestureDistance = metrics.distance;
@@ -1699,8 +1810,10 @@
       // Treat two fingers as one similarity transform, not as competing modes.
       // The same gesture frame can rotate by center movement, roll by finger-pair
       // angle, and zoom by finger-pair scale at the same time.
-      applyScreenDeltaRotate(centerDx, centerDy, false);
-      applyScreenRoll(angleDelta);
+      state.angularSpeed = 0;
+      resetUprightStabilizer();
+      applyScreenDeltaRotate(centerDx, centerDy, true);
+      applyScreenRoll(angleDelta, true);
 
       if (state.lastGestureDistance > 0 && metrics.distance > 0) {
         const logScale = Math.log(metrics.distance / state.lastGestureDistance);
@@ -1733,9 +1846,8 @@
     function endContinuedGestureRotate() {
       state.continuingGestureRotate = false;
       state.continuedGesturePointerId = null;
-      state.angularSpeed = 0;
       viewport.classList.remove('rotating');
-      maybeSnapView();
+      settleThrowAfterRelease();
     }
 
     function endMultiTouchGestureIfNeeded() {
@@ -1749,9 +1861,8 @@
         state.lastGestureCenter = null;
         state.lastGestureDistance = 0;
         state.lastGestureAngle = 0;
-        state.angularSpeed = 0;
         viewport.classList.remove('rotating');
-        maybeSnapView();
+        settleThrowAfterRelease();
         return false;
       }
 
@@ -1826,7 +1937,7 @@
       const dy = e.clientY - state.lastY;
 
       if (state.continuingGestureRotate && e.pointerId === state.continuedGesturePointerId) {
-        applyScreenDeltaRotate(dx, dy, false);
+        applyScreenDeltaRotate(dx, dy, true);
         state.lastX = e.clientX;
         state.lastY = e.clientY;
         invalidateRender();
@@ -1933,7 +2044,8 @@
         state.gestureRotating ||
         state.continuingGestureRotate ||
         Boolean(state.snapQuat) ||
-        state.angularSpeed > 1e-5 ||
+        state.angularSpeed > FREE_SPIN_SLEEP_SPEED ||
+        state.uprightVel.lengthSq() > FREE_SPIN_SLEEP_SPEED * FREE_SPIN_SLEEP_SPEED ||
         state.panVel.lengthSq() > 1e-6 ||
         Math.abs(state.zoomVel) > 1e-5;
 
