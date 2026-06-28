@@ -1639,7 +1639,7 @@
       if (!Number.isFinite(deltaAngle) || Math.abs(deltaAngle) < 1e-6) return;
 
       const cameraForward = camera.getWorldDirection(new THREE.Vector3()).normalize();
-      tempQuat.setFromAxisAngle(cameraForward, deltaAngle).normalize();
+      tempQuat.setFromAxisAngle(cameraForward, -deltaAngle).normalize();
       state.orientation.premultiply(tempQuat).normalize();
       syncSceneMatrices();
 
