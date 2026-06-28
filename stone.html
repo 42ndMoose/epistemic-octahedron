@@ -1186,7 +1186,7 @@
     }
 
     function applyAngularMomentum() {
-      if (state.rotating) return;
+      if (state.rotating || state.gestureRotating || state.continuingGestureRotate) return;
       if (state.angularSpeed > 1e-5) {
         tempQuat.setFromAxisAngle(state.angularAxis, state.angularSpeed);
         state.orientation.multiply(tempQuat).normalize();
@@ -1299,7 +1299,7 @@
       renderer.setSize(width, height);
     }
 
-    function applyScreenDeltaRotate(dx, dy) {
+    function applyScreenDeltaRotate(dx, dy, recordMomentum = true) {
       if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
 
       const yawQuat = new THREE.Quaternion().setFromAxisAngle(WORLD_Y, dx * ROTATE_DRAG_SCALE);
@@ -1308,6 +1308,11 @@
 
       state.orientation.premultiply(tempQuat).normalize();
       syncSceneMatrices();
+
+      if (!recordMomentum) {
+        state.angularSpeed = 0;
+        return;
+      }
 
       const axis = tempVec3.set(tempQuat.x, tempQuat.y, tempQuat.z);
       if (axis.lengthSq() > 1e-10) {
@@ -1639,12 +1644,16 @@
       if (!Number.isFinite(deltaAngle) || Math.abs(deltaAngle) < 1e-6) return;
 
       const cameraForward = camera.getWorldDirection(new THREE.Vector3()).normalize();
-      tempQuat.setFromAxisAngle(cameraForward, -deltaAngle).normalize();
+      tempQuat.setFromAxisAngle(cameraForward, deltaAngle).normalize();
       state.orientation.premultiply(tempQuat).normalize();
       syncSceneMatrices();
+      state.angularSpeed = 0;
+    }
 
-      state.angularAxis.copy(cameraForward);
-      state.angularSpeed = Math.abs(deltaAngle);
+    function applyGestureZoom(distanceDelta) {
+      if (!Number.isFinite(distanceDelta) || Math.abs(distanceDelta) < 0.01) return;
+      state.distance = Math.max(1.7, Math.min(12, state.distance + distanceDelta * 0.006));
+      state.zoomVel = 0;
     }
 
     function beginMultiTouchGesture() {
@@ -1677,13 +1686,23 @@
       const metrics = getGestureMetrics();
       const lastCenter = state.lastGestureCenter || metrics.center;
       const angleDelta = shortestAngleDelta(metrics.angle, state.lastGestureAngle);
+      const distanceDelta = state.lastGestureDistance - metrics.distance;
+      const centerDx = metrics.center.x - lastCenter.x;
+      const centerDy = metrics.center.y - lastCenter.y;
 
-      applyScreenDeltaRotate(metrics.center.x - lastCenter.x, metrics.center.y - lastCenter.y);
+      // Two-finger motion is decomposed into three independent gestures:
+      // center movement rotates the object, finger-vector angle twists it,
+      // and distance changes zoom only when the user is mainly pinching.
+      applyScreenDeltaRotate(centerDx, centerDy, false);
       applyScreenRoll(angleDelta);
 
       if (state.lastGestureDistance > 0) {
-        state.zoomVel += (state.lastGestureDistance - metrics.distance) * 0.006;
+        const twistPixels = Math.abs(angleDelta) * Math.max(metrics.distance, state.lastGestureDistance);
+        const pinchPixels = Math.abs(distanceDelta);
+        const mainlyPinching = twistPixels < Math.max(1.5, pinchPixels * 0.55);
+        if (mainlyPinching) applyGestureZoom(distanceDelta);
       }
+
       state.lastGestureCenter = metrics.center;
       state.lastGestureDistance = metrics.distance;
       state.lastGestureAngle = metrics.angle;
@@ -1710,6 +1729,7 @@
     function endContinuedGestureRotate() {
       state.continuingGestureRotate = false;
       state.continuedGesturePointerId = null;
+      state.angularSpeed = 0;
       viewport.classList.remove('rotating');
       maybeSnapView();
     }
@@ -1725,6 +1745,7 @@
         state.lastGestureCenter = null;
         state.lastGestureDistance = 0;
         state.lastGestureAngle = 0;
+        state.angularSpeed = 0;
         viewport.classList.remove('rotating');
         maybeSnapView();
         return false;
@@ -1801,7 +1822,7 @@
       const dy = e.clientY - state.lastY;
 
       if (state.continuingGestureRotate && e.pointerId === state.continuedGesturePointerId) {
-        applyScreenDeltaRotate(dx, dy);
+        applyScreenDeltaRotate(dx, dy, false);
         state.lastX = e.clientX;
         state.lastY = e.clientY;
         invalidateRender();
