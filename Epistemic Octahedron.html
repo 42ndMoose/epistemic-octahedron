@@ -6,15 +6,18 @@
   <title>Epistemic Octahedron Plotter</title>
   <style>
     :root {
-      --bg: #0b0d12;
-      --panel: rgba(18, 22, 31, 0.94);
-      --panel-border: rgba(255,255,255,0.08);
-      --text: #eef2f7;
-      --muted: #a7b0bf;
-      --accent: #ff3b3b;
-      --btn: #1c2330;
-      --btn-hover: #273145;
-      --shadow: 0 18px 50px rgba(0,0,0,0.38);
+      --bg: #ffffff;
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-strong: #ffffff;
+      --border: rgba(15, 23, 42, 0.10);
+      --text: #111827;
+      --muted: #6b7280;
+      --soft: #f3f4f6;
+      --accent: #ef4444;
+      --accent-soft: rgba(239, 68, 68, 0.12);
+      --blue: #2563eb;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.10);
+      --radius: 22px;
     }
 
     * { box-sizing: border-box; }
@@ -23,325 +26,121 @@
       height: 100%;
       margin: 0;
       overflow: hidden;
-      background: radial-gradient(circle at top, #111723, var(--bg) 60%);
+      background: var(--bg);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
-    #app {
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-    }
-
-    #viewport {
-      position: absolute;
-      inset: 0;
-      cursor: grab;
-      touch-action: none;
-      user-select: none;
-    }
-    #viewport.rotating,
-    #viewport.dragging-point { cursor: grabbing; }
+    #app { position: fixed; inset: 0; overflow: hidden; background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); }
+    #viewport { position: absolute; inset: 0 0 250px; cursor: crosshair; touch-action: none; user-select: none; overflow: hidden; }
+    #viewport.rotating, #viewport.dragging-point { cursor: grabbing; }
+    #viewport canvas { display: block; }
 
     #ui {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      width: 340px;
-      max-width: calc(100vw - 32px);
-      display: grid;
-      gap: 12px;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
       z-index: 20;
+      padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
       pointer-events: none;
     }
 
     .panel {
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: 18px;
+      width: min(680px, 100%);
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(18px);
       pointer-events: auto;
     }
+    .section { padding: 14px; }
+    .mobile-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .mobile-title h1 { margin: 0; font-size: 15px; letter-spacing: -0.02em; }
+    .mobile-title p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+    .mode-toggle { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 3px; border-radius: 999px; background: var(--soft); border: 1px solid var(--border); }
+    .mode-toggle button { border: 0; border-radius: 999px; padding: 8px 10px; background: transparent; color: var(--muted); box-shadow: none; }
+    .mode-toggle button.active { background: var(--surface-strong); color: var(--text); box-shadow: 0 4px 14px rgba(15,23,42,.08); }
+    .panel-page[hidden] { display: none; }
+    .worldview-card { display: grid; gap: 10px; }
+    .worldview-pill { display: inline-flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; padding: 7px 10px; border-radius: 999px; background: var(--soft); color: var(--text); font-size: 12px; font-weight: 900; }
+    .worldview-dot { width: 8px; height: 8px; border-radius: 999px; background: currentColor; box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06); flex: 0 0 auto; }
+    .worldview-pill.origin, .worldview-pill.borderline { color: #6b7280; }
+    .worldview-pill.peak, .worldview-pill.higher-positive, .worldview-pill.positive { color: #2563eb; }
+    .worldview-pill.negative, .worldview-pill.deep-negative, .worldview-pill.collapse { color: #dc2626; }
+    .worldview-line { display: grid; gap: 4px; }
+    .worldview-line .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+    .worldview-line .v { font-size: 13px; line-height: 1.38; color: var(--text); }
 
-    .section {
-      padding: 14px 14px 12px;
-    }
+    .slider-row { display: grid; gap: 7px; margin-bottom: 11px; }
+    .slider-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
+    .pair-head { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    .aspect-label, .stability-label { font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; transition: color 120ms ease, font-weight 120ms ease; }
+    .aspect-label.right { text-align: right; }
+    .aspect-label.active, .stability-label.active { color: var(--text); font-weight: 800; }
+    .range-wrap { position: relative; }
+    input[type="range"] { width: 100%; appearance: none; height: 7px; border-radius: 999px; background: linear-gradient(90deg, #e5e7eb, #f3f4f6); outline: none; accent-color: var(--text); }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #111827; border: 4px solid #fff; box-shadow: 0 5px 16px rgba(15,23,42,.22); cursor: pointer; }
+    input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: #111827; border: 4px solid #fff; box-shadow: 0 5px 16px rgba(15,23,42,.22); cursor: pointer; }
 
+    .coords { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+    .coord { border: 1px solid var(--border); border-radius: 16px; padding: 9px 10px; background: #fff; }
+    .coord .k { font-size: 10px; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .08em; }
+    .coord .v, .coord-input { font-size: 15px; font-weight: 800; }
+    .coord-input { width: 100%; padding: 0; margin: 0; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; caret-color: var(--text); user-select: text; }
+    .coord-input::selection { background: rgba(17,24,39,.16); }
 
-    .slider-row {
-      display: grid;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-
-    .slider-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: nowrap;
-      gap: 12px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .pair-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      align-items: center;
-      gap: 12px;
-    }
-
-    .aspect-label {
-      font-size: 12px;
-      font-weight: 400;
-      color: var(--muted);
-      white-space: nowrap;
-      transition: color 120ms ease, font-weight 120ms ease;
-    }
-
-    .aspect-label.right {
-      text-align: right;
-    }
-
-    .aspect-label.active {
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    .stability-label {
-      font-size: 12px;
-      font-weight: 400;
-      color: var(--muted);
-      white-space: nowrap;
-      transition: color 120ms ease, font-weight 120ms ease;
-    }
-
-    .stability-label.active {
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    .range-wrap {
-      position: relative;
-    }
-
-    input[type="range"] {
-      width: 100%;
-      appearance: none;
-      height: 8px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08));
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      appearance: none;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: white;
-      border: 2px solid #0d1118;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.34);
-      cursor: pointer;
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: white;
-      border: 2px solid #0d1118;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.34);
-      cursor: pointer;
-    }
-
-    .hover-tooltip {
-      position: fixed;
-      left: 0;
-      top: 0;
-      transform: translate(-50%, calc(-100% - 10px));
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(9, 12, 18, 0.92);
-      color: var(--text);
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1;
-      white-space: nowrap;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.32);
-      backdrop-filter: blur(10px);
-      pointer-events: none;
-      opacity: 0;
-      z-index: 30;
-      transition: opacity 90ms ease;
-    }
-
-    .hover-tooltip.show {
-      opacity: 1;
-    }
-
-    .coords {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .coord {
-      border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      padding: 10px;
-      background: rgba(255,255,255,0.03);
-    }
-
-    .coord .k {
-      font-size: 11px;
-      color: var(--muted);
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .coord .v {
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .coord-input {
-      width: 100%;
-      padding: 0;
-      margin: 0;
-      border: 0;
-      outline: none;
-      background: transparent;
-      color: var(--text);
-      font: inherit;
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1.2;
-      caret-color: var(--text);
-      user-select: text;
-    }
-
-    .coord-input::selection {
-      background: rgba(255,255,255,0.22);
-      color: var(--text);
-    }
-
-    button {
-      appearance: none;
-      border: 1px solid var(--panel-border);
-      background: var(--btn);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 140ms ease, transform 140ms ease;
-    }
-
-    button:hover { background: var(--btn-hover); }
-    button:active { transform: translateY(1px); }
-
-    .small-float {
-      position: absolute;
-      right: 16px;
-      top: 16px;
-      z-index: 20;
-      display: flex;
-      gap: 8px;
-      pointer-events: none;
-    }
-
+    button { appearance: none; border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 999px; padding: 10px 12px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease; box-shadow: 0 6px 18px rgba(15,23,42,.07); }
+    button:active { transform: translateY(1px) scale(.99); }
+    .small-float { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 20; display: flex; gap: 8px; pointer-events: none; }
     .small-float > * { pointer-events: auto; }
 
-    .hint {
-      position: absolute;
-      right: 16px;
-      bottom: 16px;
-      max-width: min(420px, calc(100vw - 32px));
-      z-index: 20;
-      pointer-events: none;
-    }
-
-    .hint .section {
-      padding: 12px 14px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.45;
-    }
-
-    .crosshair {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 15;
-      display: none;
-    }
-
-    .crosshair::before,
-    .crosshair::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 10px rgba(255, 59, 59, 0.7);
-      transform: translate(-50%, -50%);
-    }
-
-    .crosshair::before {
-      width: 18px;
-      height: 2px;
-      border-radius: 999px;
-    }
-
-    .crosshair::after {
-      width: 2px;
-      height: 18px;
-      border-radius: 999px;
-    }
-
-    .view-labels {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 14;
-      display: block;
-      font-size: 12px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.84);
-      text-shadow: 0 2px 10px rgba(0,0,0,0.6);
-    }
-
-    .view-labels .tag {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      padding: 6px 8px;
-      background: rgba(9, 12, 18, 0.5);
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(6px);
-      white-space: nowrap;
-      transition: opacity 120ms ease;
-    }
-
+    .crosshair { position: absolute; width: 22px; height: 22px; transform: translate(-50%,-50%); pointer-events: none; z-index: 15; display:none; }
+    .crosshair::before,.crosshair::after { content:""; position:absolute; left:50%; top:50%; background:var(--accent); box-shadow:0 0 0 6px var(--accent-soft); transform:translate(-50%,-50%); }
+    .crosshair::before { width:20px; height:2px; border-radius:999px; }
+    .crosshair::after { width:2px; height:20px; border-radius:999px; }
+    .view-labels { position:absolute; inset:0; pointer-events:none; z-index:14; display:block; font-size:12px; font-weight:800; color:#111827; }
+    .view-labels .tag { position:absolute; transform:translate(-50%,-50%); padding:6px 9px; background:rgba(255,255,255,.82); border-radius:999px; border:1px solid var(--border); box-shadow:0 8px 20px rgba(15,23,42,.08); backdrop-filter:blur(8px); white-space:nowrap; transition:opacity 120ms ease; }
+    .hover-tooltip { position:fixed; left:0; top:0; transform:translate(-50%, calc(-100% - 10px)); padding:6px 8px; border-radius:999px; border:1px solid var(--border); background:#111827; color:#fff; font-size:11px; font-weight:800; line-height:1; white-space:nowrap; box-shadow:0 10px 30px rgba(15,23,42,.2); pointer-events:none; opacity:0; z-index:30; transition:opacity 90ms ease; }
+    .hover-tooltip.show { opacity:1; }
     .mono { font-variant-numeric: tabular-nums; }
+
+    @media (min-width: 760px) {
+      #viewport { inset: 0; }
+      #ui { left: 16px; right: auto; top: 16px; bottom: auto; width: 360px; padding: 0; }
+      .panel { width: 100%; margin: 0; }
+      .small-float { top: 16px; right: 16px; }
+    }
   </style>
 </head>
 <body>
   <div id="app">
-    <div id="viewport"></div>
+    <div id="viewport">
+      <div id="crosshair" class="crosshair"></div>
+      <div id="viewLabels" class="view-labels">
+        <div id="labelEmpathy" class="tag">Empathy</div>
+        <div id="labelPracticality" class="tag">Practicality</div>
+        <div id="labelWisdom" class="tag">Wisdom</div>
+        <div id="labelKnowledge" class="tag">Knowledge</div>
+      </div>
+    </div>
 
     <div id="ui">
       <div class="panel section">
+        <div class="mobile-title">
+          <div>
+            <h1>Epistemic Octahedron</h1>
+            <p>Plot with one finger. Rotate with two.</p>
+          </div>
+          <div class="mode-toggle" aria-label="Panel mode">
+            <button id="plotModeBtn" class="active" type="button">Plot</button>
+            <button id="rotateModeBtn" type="button">Worldview</button>
+          </div>
+        </div>
+        <div id="plotPanel" class="panel-page">
         <div class="slider-row">
           <div class="slider-head pair-head">
             <span id="practicalitySliderLabel" class="aspect-label">Practicality</span>
@@ -380,6 +179,13 @@
             <input id="coord-z" class="v mono coord-input" type="text" value="0.000" inputmode="decimal" spellcheck="false" autocomplete="off" />
           </div>
         </div>
+        </div>
+
+        <div id="worldviewPanel" class="panel-page worldview-card" hidden>
+          <div><span id="worldviewPill" class="worldview-pill origin"><span class="worldview-dot"></span><span>Origin / null state</span></span></div>
+          <div class="worldview-line"><div class="k">Region</div><div id="worldviewRegion" class="v">No active worldview has formed strongly enough to be plotted on the surface.</div></div>
+          <div class="worldview-line"><div class="k">Meaning</div><div id="worldviewMeaning" class="v">Move the plot point to see the worldview label and interpretation for that region.</div></div>
+        </div>
       </div>
     </div>
 
@@ -389,13 +195,6 @@
       <button id="rotateRightBtn" style="display:none;">↺ 90°</button>
     </div>
 
-    <div id="crosshair" class="crosshair"></div>
-    <div id="viewLabels" class="view-labels">
-      <div id="labelEmpathy" class="tag">Empathy</div>
-      <div id="labelPracticality" class="tag">Practicality</div>
-      <div id="labelWisdom" class="tag">Wisdom</div>
-      <div id="labelKnowledge" class="tag">Knowledge</div>
-    </div>
     <div id="sliderTooltip" class="hover-tooltip"></div>
     <div id="aspectTooltip" class="hover-tooltip"></div>
   </div>
@@ -417,6 +216,13 @@
     const coordY = document.getElementById('coord-y');
     const coordZ = document.getElementById('coord-z');
     const resetBtn = document.getElementById('resetBtn');
+    const plotModeBtn = document.getElementById('plotModeBtn');
+    const rotateModeBtn = document.getElementById('rotateModeBtn');
+    const plotPanel = document.getElementById('plotPanel');
+    const worldviewPanel = document.getElementById('worldviewPanel');
+    const worldviewPill = document.getElementById('worldviewPill');
+    const worldviewRegion = document.getElementById('worldviewRegion');
+    const worldviewMeaning = document.getElementById('worldviewMeaning');
     const rotateLeftBtn = document.getElementById('rotateLeftBtn');
     const rotateRightBtn = document.getElementById('rotateRightBtn');
     const crosshair = document.getElementById('crosshair');
@@ -440,11 +246,11 @@
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(viewport.clientWidth || window.innerWidth, viewport.clientHeight || window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     viewport.appendChild(renderer.domElement);
 
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+    const camera = new THREE.PerspectiveCamera(45, (viewport.clientWidth || window.innerWidth) / (viewport.clientHeight || window.innerHeight), 0.01, 100);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.3));
 
@@ -456,10 +262,10 @@
     rimLight.position.set(-4, 2, -3);
     scene.add(rimLight);
 
-    const grid = new THREE.GridHelper(8, 16, 0x445066, 0x263041);
+    const grid = new THREE.GridHelper(8, 16, 0xd1d5db, 0xe5e7eb);
     grid.position.y = -1.75;
     grid.material.transparent = true;
-    grid.material.opacity = 0.22;
+    grid.material.opacity = 0.32;
     scene.add(grid);
 
     const rootGroup = new THREE.Group();
@@ -470,9 +276,9 @@
 
     const octaGeom = new THREE.OctahedronGeometry(1, 0);
     const solidMat = new THREE.MeshPhysicalMaterial({
-      color: 0x98a7c7,
+      color: 0xdbe4f0,
       transparent: true,
-      opacity: 0.26,
+      opacity: 0.38,
       roughness: 0.72,
       metalness: 0,
       side: THREE.FrontSide,
@@ -485,7 +291,7 @@
 
     octaGroup.add(new THREE.LineSegments(
       new THREE.EdgesGeometry(octaGeom),
-      new THREE.LineBasicMaterial({ color: 0xe6edf9, transparent: true, opacity: 0.3, depthTest: true })
+      new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.42, depthTest: true })
     ));
 
     const equatorPoints = [
@@ -497,7 +303,7 @@
     ];
     octaGroup.add(new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(equatorPoints),
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14, depthTest: true })
+      new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.28, depthTest: true })
     ));
 
     octaGroup.add(new THREE.Line(
@@ -587,13 +393,23 @@
       surfaceLocked: false,
       stabilitySign: 1,
       hoveredSlider: null,
-      hoveredAspectLabel: null
+      hoveredAspectLabel: null,
+      uiMode: 'plot',
+      activePointers: new Map(),
+      gestureRotating: false,
+      continuingGestureRotate: false,
+      continuedGesturePointerId: null,
+      pendingPointDragTimer: null,
+      pendingPointPointerId: null,
+      lastGestureCenter: null,
+      lastGestureDistance: 0
     };
 
     const SNAP_EPS = THREE.MathUtils.degToRad(10);
     const PAN_DAMP = 0.82;
     const ZOOM_DAMP = 0.86;
     const ANGULAR_DAMP = 0.9;
+    const POINT_DRAG_DELAY_MS = 115;
     const CANONICAL_VIEWS = [];
     const CANONICAL_SIDE_VIEWS = [];
 
@@ -765,6 +581,7 @@
       updateStabilityLabels();
       updateAspectLabels();
       updateCoordLabels({ preserveActiveCoordRaw });
+      updateWorldviewUI();
       if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
       if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
       invalidateRender();
@@ -943,6 +760,7 @@
       updateStabilityLabels();
       updateAspectLabels();
       updateCoordLabels();
+      updateWorldviewUI();
       if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
       if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
       invalidateRender();
@@ -1053,6 +871,258 @@
       }
     }
 
+
+    const ATLAS_VERTEX_EPS = 0.006;
+    const ATLAS_BAND = 1 / 7;
+    const ATLAS_BORDER_LIMIT = ATLAS_BAND;
+    const ATLAS_STRONG_START = ATLAS_BAND * 2;
+    const ATLAS_HIGHER_START = ATLAS_BAND * 3;
+    const ATLAS_STRONG_HIGHER_START = ATLAS_BAND * 4;
+    const ATLAS_NEAR_VERTEX_START = ATLAS_BAND * 5;
+    const ATLAS_STRONG_NEAR_VERTEX_START = ATLAS_BAND * 6;
+
+    const WORLDVIEW_LABELS = {
+      E: {
+        borderline: ['Approval-sensitive', 'They pick up emotional pressure, approval signals, and social tension quickly. They tend to overread reactions when their reality-contact is not strong enough.'],
+        positive: ['Empathetic', 'They show active concern for people while still preserving some contact with facts and consequences.'],
+        strongPositive: ['Compassionate', 'Their empathy is more stable and useful: care is active without needing every discomfort to become proof of harm.'],
+        higherPositive: ['Calibrated empathy', 'They care without losing proportion. They can notice suffering without turning every discomfort into proof of harm.'],
+        strongHigherPositive: ['Clear-eyed compassion', 'They are compassionate while still staying reality-bound. They can help people without needing a victim story, villain story, or emotional performance.'],
+        negative: ['Main-character victimhood', 'They interpret discomfort, disagreement, or limits as personal injury. They tend to make suffering the center of the story.'],
+        strongNegative: ['Grievance-core identity', 'They organize their identity around injury, resentment, or being wronged. Correction feels like an attack because the grievance has become self-protective.'],
+        deeperNegative: ['Doomer', 'They see decline, suffering, or failure as the main frame. They tend to lose agency because the negative pattern feels total.'],
+        strongDeeperNegative: ['Resentful doomer', 'They combine despair with blame. They tend to treat collapse as proof that resentment was justified.']
+      },
+      W: {
+        borderline: ['Analysis-locked', 'They see too many angles at once and can get stuck before acting. They tend to confuse more reflection with better judgment.'],
+        positive: ['Discerning', 'They can separate signal from noise and make proportionate judgments without needing perfect information.'],
+        strongPositive: ['Judicious', 'Their judgment is steadier and more context-aware under uncertainty.'],
+        higherPositive: ['Balanced judgment', 'They weigh context, limits, evidence, and consequences without becoming vague. They typically know when to pause, when to act, and when to revise.'],
+        strongHigherPositive: ['Steady judgment', 'They are hard to pull into panic, slogans, or cheap certainty. Their judgment tends to stay proportionate under pressure.'],
+        negative: ['Fake-deep discernment', 'They sound reflective, symbolic, or profound, but the insight is not strongly tied to reality. They tend to turn vagueness into authority.'],
+        strongNegative: ['Fake-deep certainty', 'They use depth-language to protect beliefs from correction. They typically treat their interpretation as superior even when evidence is weak.'],
+        deeperNegative: ['Narrative spinner', 'They are good at framing events in ways that steer perception. They tend to shape the story before they face the truth.'],
+        strongDeeperNegative: ['Gaslight strategist', 'They use interpretation, social pressure, or selective context to make others doubt reality. They tend to control the frame instead of answering to the facts.']
+      },
+      P: {
+        borderline: ['No-filter realist', 'They move straight toward what seems obvious, workable, or true. They typically miss tone, timing, and the human cost of saying it badly.'],
+        positive: ['Practical', 'They respect what works, what costs something, and what can actually be done.'],
+        strongPositive: ['Grounded', 'They are more reliably anchored in constraint, tradeoff, and workable execution.'],
+        higherPositive: ['Effective realism', 'They care about what actually works, what costs something, and what survives contact with reality. They do not confuse good intentions with good results.'],
+        strongHigherPositive: ['Locked-in execution', 'They act with discipline, priority, and follow-through. They can execute without turning efficiency into coldness.'],
+        negative: ['Outcome-only realism', 'They treat results, control, or efficiency as the whole story. They tend to excuse unnecessary harm by calling it realism.'],
+        strongNegative: ['Ruthless operator', 'They understand incentives and constraints, but empathy and accountability have been pushed out. They can be effective while becoming destructive.'],
+        deeperNegative: ['Clout opportunist', 'They read incentives and openings quickly, especially social reward. They tend to chase advantage before responsibility.'],
+        strongDeeperNegative: ['Predatory opportunist', "They use systems, incentives, and other people's weakness for gain. They typically understand the game well enough to exploit it."]
+      },
+      K: {
+        borderline: ['Status-defensive', 'They care too much about looking informed, correct, or respected. They tend to protect their image before they protect the truth.'],
+        positive: ['Informed', 'They have usable facts and some awareness of what is known, unknown, and uncertain.'],
+        strongPositive: ['Knowledgeable', 'They can bring more developed knowledge to bear without fully replacing judgment with expertise.'],
+        higherPositive: ['Evidence-backed clarity', 'They use facts to clarify reality rather than to protect ego. They tend to update when better evidence arrives.'],
+        strongHigherPositive: ['Reality-tracking expertise', 'They know the subject and can still be corrected by reality. Their expertise helps judgment instead of replacing it.'],
+        negative: ['Factoid defensiveness', 'They use facts, trivia, jargon, or technical fragments as armor. They tend to look for winning points instead of truth.'],
+        strongNegative: ['Confidently-wrong expertise', 'They present themselves as informed while missing context, limits, or correction. They tend to mistake fluency for understanding.'],
+        deeperNegative: ['Bad-faith rationalizer', 'They use reasons after the fact to excuse what they already wanted. They tend to make self-serving choices look principled.'],
+        strongDeeperNegative: ['Weaponized rationalizer', 'They turn facts, logic, or technical language into a tool for evasion or attack. They use reasoning to protect distortion instead of correction.']
+      },
+      EW: {
+        borderline: ['Good-vibes idealist', 'They want the humane or hopeful answer to be true. They tend to underrate constraint, tradeoff, and ugly facts.'],
+        positive: ['Compassionate discernment', 'They notice suffering, but they also ask what is true, what helps, what harms, and what responsibility requires.'],
+        strongPositive: ['Principled compassion', 'They stay humane without becoming soft, gullible, or performative. Their care is guided by judgment, not by emotional pressure alone.'],
+        negative: ['Savior-complex altruist', 'They want to help, but the helping becomes self-flattering, controlling, or reality-detached. They tend to need the role of rescuer.'],
+        strongNegative: ['Coercive savior', 'They use care-language to pressure, control, or override others. They tend to justify force by calling it compassion.']
+      },
+      WP: {
+        borderline: ['Trust-locked skeptic', 'They stay guarded because they expect hidden motives, weak reasoning, or bad incentives. They can protect themselves from nonsense, but they may also block correction.'],
+        positive: ['Strategic restraint', 'They can hold back because timing, context, and consequence matter. They do not treat every impulse to act as wisdom.'],
+        strongPositive: ['Disciplined strategy', 'They understand when to move, when to wait, and what tradeoffs matter. They stay practical without losing context or accountability.'],
+        negative: ['Power-gamer strategist', 'They understand people, timing, and systems, but use that insight mainly to win. They tend to treat reality as a board to manipulate.'],
+        strongNegative: ['Predatory power-gamer', 'They combine strategy with low accountability. They typically use people, narratives, and incentives as pieces.']
+      },
+      PK: {
+        borderline: ['Systems-only operator', 'They understand facts, systems, tools, and function, but the human and wisdom dimensions are thin. People like them can solve the mechanism while missing the meaning.'],
+        positive: ['Competent operator', 'They know how to get things done. They usually read systems, incentives, and constraints well.'],
+        strongPositive: ['High-agency operator', 'They are unusually effective at turning knowledge into action. They can move through complex systems without needing constant permission.'],
+        negative: ['Logic-bro rationalizer', 'They use logic as a shield against empathy, context, or accountability. They tend to confuse emotional detachment with objectivity.'],
+        strongNegative: ['Self-sealing logic-bro', 'They build a closed reasoning loop that absorbs counterevidence. They typically use logic-language to avoid being corrected.']
+      },
+      KE: {
+        borderline: ['Credential-chasing advocate', 'They care about people, but they lean too hard on approved sources, expert signals, statistics, and institutional language. They tend to outsource judgment to whatever looks authoritative.'],
+        positive: ['Informed advocacy', 'They care about affected people and use evidence to guide that concern. They tend to ask whether the proposed help actually works.'],
+        strongPositive: ['Humane expertise', 'They combine knowledge with concern for people. They can handle technical reality without becoming detached from human consequences.'],
+        negative: ['Credentialed virtue-signaler', 'They combine approved knowledge with moral performance. They tend to borrow authority from credentials, causes, or institutions instead of showing mature judgment.'],
+        strongNegative: ['Scripted zealot', 'They speak from a preloaded cause, ideology, or moral script. They tend to repeat the frame even when reality pushes against it.']
+      }
+    };
+
+    const INTEGRATED_LABELS = {
+      positive: ['Philosophically mature / integrated', 'This is broad positive integration: empathy, practicality, wisdom, and knowledge are correcting each other instead of collapsing into one identity-fixed style.'],
+      strongPositive: ['Near-peak integrated maturity', 'This is near-peak integration: the worldview is highly reality-responsive, context-flexible, and balanced across the octahedron.'],
+      negative: ['Brainrot collapse', 'They are pulled into a low-reality loop where fragments, vibes, slogans, and emotional reward replace judgment. Their worldview stops repairing itself.'],
+      strongNegative: ['Near-total reality collapse', 'They are close to full epistemic breakdown. Their beliefs still have a recognizable flavor, but correction has very little power.']
+    };
+
+    function percentText(value) {
+      const clean = Math.max(0, Math.min(100, value));
+      const rounded = Math.round(clean * 10) / 10;
+      return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+    }
+
+    function getWorldviewLateral(point) {
+      const ax = Math.abs(point.x);
+      const az = Math.abs(point.z);
+      const lateral = ax + az;
+      if (lateral < 1e-5) return { code: 'ewpk', kind: 'center', dominant: 'Integrated center' };
+      const xPole = point.x >= 0 ? 'E' : 'P';
+      const zPole = point.z >= 0 ? 'W' : 'K';
+      const xName = xPole === 'E' ? 'Empathy' : 'Practicality';
+      const zName = zPole === 'W' ? 'Wisdom' : 'Knowledge';
+      if (Math.max(ax, az) / lateral >= 0.68) {
+        return { code: ax >= az ? xPole : zPole, kind: 'lane', dominant: ax >= az ? xName : zName };
+      }
+      let code = 'EW';
+      if (xPole === 'P' && zPole === 'W') code = 'WP';
+      if (xPole === 'P' && zPole === 'K') code = 'PK';
+      if (xPole === 'E' && zPole === 'K') code = 'KE';
+      return { code, kind: 'blend', dominant: `${xName} + ${zName}` };
+    }
+
+    function higherLaneCode(code) {
+      if (code === 'E') return 'Ekw';
+      if (code === 'W') return 'W ep';
+      if (code === 'P') return 'P wk';
+      if (code === 'K') return 'Kep';
+      return code;
+    }
+
+    function displayRegionCode(code) {
+      if (code === 'WP') return 'W P';
+      if (code === 'ewpk') return 'ewpk';
+      return code;
+    }
+
+    function positiveHeightNote(heightPercent) {
+      if (heightPercent < 20) return 'This is still close to the equator: healthy, but fragile under pressure.';
+      if (heightPercent < 45) return 'This is a clear positive expression, though not yet close to full integration.';
+      if (heightPercent < 70) return 'This is developed and increasingly stabilized by self-correction and reality-contact.';
+      return 'This is high positive stability: lateral emphasis is becoming context-flexible rather than identity-fixed.';
+    }
+
+    function negativeDepthNote(depthPercent) {
+      if (depthPercent < 15) return 'At this depth, treat it as early distortion, not delusion proper.';
+      if (depthPercent < 35) return 'The issue is mainly immature distortion: biased, but not fully detached from correction.';
+      if (depthPercent < 55) return 'False certainty becomes the main risk, with selective evidence or defensive interpretation.';
+      if (depthPercent < 70) return 'Delusion-grade pressure begins: reality-contact is meaningfully compromised.';
+      if (depthPercent < 85) return 'The distortion becomes organized and starts defending itself against correction.';
+      return 'The system is near collapse: self-sealing interpretation dominates and lateral flavor becomes less reliable.';
+    }
+
+    function makeWorldviewEntry(label, pillClass, region, meaning) {
+      return { label, pillClass, region, meaning };
+    }
+
+    function labelEntry(set, key, fallbackKey = key) {
+      return set?.[key] || set?.[fallbackKey] || ['Unlabeled region', 'This region has not been assigned a modern label yet.'];
+    }
+
+    function classifyWorldview(point) {
+      const ax = Math.abs(point.x);
+      const ay = Math.abs(point.y);
+      const az = Math.abs(point.z);
+      const lateral = ax + az;
+      const lateralInfo = getWorldviewLateral(point);
+      const code = lateralInfo.code;
+      const set = WORLDVIEW_LABELS[code] || null;
+
+      if (ax + ay + az < 1e-5) {
+        return makeWorldviewEntry('Origin / null state', 'origin', 'Center', 'The origin is reserved for pre-philosophical absence. No active worldview has formed strongly enough to be plotted on the surface.');
+      }
+      if (Math.abs(point.y - 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
+        return makeWorldviewEntry('Objective peak philosophical maturity', 'peak', 'Top vertex', 'This is the exact upper vertex: empathy, practicality, wisdom, and knowledge are integrated under maximal positive epistemic stability.');
+      }
+      if (Math.abs(point.y + 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
+        return makeWorldviewEntry('Pure epistemic collapse', 'collapse', 'Lower vertex', 'They are maximally detached from reality-governed correction. At this point, the specific lateral style matters less than the collapse itself.');
+      }
+      if (ay <= ATLAS_BORDER_LIMIT) {
+        const entry = labelEntry(set, 'borderline');
+        return makeWorldviewEntry(entry[0], 'borderline', `Borderline ${displayRegionCode(code)}`, entry[1]);
+      }
+
+      if (point.y > 0) {
+        const stability = point.y * 100;
+        if (point.y >= ATLAS_NEAR_VERTEX_START || code === 'ewpk') {
+          const strong = point.y >= ATLAS_STRONG_NEAR_VERTEX_START;
+          const entry = strong ? INTEGRATED_LABELS.strongPositive : INTEGRATED_LABELS.positive;
+          return makeWorldviewEntry(entry[0], strong ? 'peak' : 'higher-positive', `${strong ? 'Strong ' : ''}Positive ewpk · ${percentText(stability)} positive stability`, entry[1]);
+        }
+
+        if (lateralInfo.kind === 'lane' && point.y >= ATLAS_HIGHER_START) {
+          const strong = point.y >= ATLAS_STRONG_HIGHER_START;
+          const entry = labelEntry(set, strong ? 'strongHigherPositive' : 'higherPositive', 'higherPositive');
+          const regionCode = higherLaneCode(code);
+          return makeWorldviewEntry(entry[0], strong ? 'higher-positive' : 'positive', `${strong ? 'Strong ' : ''}Positive ${regionCode} · ${percentText(stability)} positive stability`, `${entry[1]} ${positiveHeightNote(stability)}`);
+        }
+
+        const strong = point.y >= ATLAS_STRONG_START;
+        const entry = labelEntry(set, strong ? 'strongPositive' : 'positive', 'positive');
+        return makeWorldviewEntry(entry[0], strong ? 'higher-positive' : 'positive', `${strong ? 'Strong ' : ''}Positive ${displayRegionCode(code)} · ${percentText(stability)} positive stability`, `${entry[1]} ${positiveHeightNote(stability)}`);
+      }
+
+      const depth = -point.y * 100;
+      if (point.y <= -ATLAS_NEAR_VERTEX_START || code === 'ewpk') {
+        const strong = -point.y >= ATLAS_STRONG_NEAR_VERTEX_START;
+        const entry = strong ? INTEGRATED_LABELS.strongNegative : INTEGRATED_LABELS.negative;
+        return makeWorldviewEntry(entry[0], strong ? 'collapse' : 'deep-negative', `${strong ? 'Strong ' : ''}Negative ewpk · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
+      }
+
+      if (lateralInfo.kind === 'lane' && -point.y >= ATLAS_HIGHER_START) {
+        const strong = -point.y >= ATLAS_STRONG_HIGHER_START;
+        const entry = labelEntry(set, strong ? 'strongDeeperNegative' : 'deeperNegative', 'deeperNegative');
+        const regionCode = higherLaneCode(code);
+        return makeWorldviewEntry(entry[0], strong ? 'deep-negative' : 'negative', `${strong ? 'Strong ' : ''}Negative ${regionCode} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
+      }
+
+      const strong = -point.y >= ATLAS_STRONG_START;
+      const entry = labelEntry(set, strong ? 'strongNegative' : 'negative', 'negative');
+      return makeWorldviewEntry(entry[0], strong ? 'deep-negative' : 'negative', `${strong ? 'Strong ' : ''}Negative ${displayRegionCode(code)} · ${percentText(depth)} negative depth`, `${entry[1]} ${negativeDepthNote(depth)}`);
+    }
+
+    function mixChannel(a, b, t) {
+      return Math.round(a + (b - a) * THREE.MathUtils.clamp(t, 0, 1));
+    }
+
+    function rgbToHex({ r, g, b }) {
+      return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    function mixRgb(a, b, t) {
+      return {
+        r: mixChannel(a.r, b.r, t),
+        g: mixChannel(a.g, b.g, t),
+        b: mixChannel(a.b, b.b, t)
+      };
+    }
+
+    function worldviewColorForPoint(point) {
+      const red = { r: 220, g: 38, b: 38 };
+      const gray = { r: 107, g: 114, b: 128 };
+      const blue = { r: 37, g: 99, b: 235 };
+      const y = THREE.MathUtils.clamp(point.y, -1, 1);
+      if (y < 0) return rgbToHex(mixRgb(red, gray, y + 1));
+      return rgbToHex(mixRgb(gray, blue, y));
+    }
+
+    function updateWorldviewUI() {
+      if (!worldviewPill) return;
+      const worldview = classifyWorldview(state.point);
+      worldviewPill.className = `worldview-pill ${worldview.pillClass}`;
+      worldviewPill.style.color = worldviewColorForPoint(state.point);
+      worldviewPill.innerHTML = `<span class="worldview-dot"></span><span>${worldview.label}</span>`;
+      worldviewRegion.textContent = worldview.region;
+      worldviewMeaning.textContent = worldview.meaning;
+    }
+
     function angleBetweenQuats(a, b) {
       return 2 * Math.acos(Math.min(1, Math.abs(a.dot(b))));
     }
@@ -1154,6 +1224,17 @@
       }
     }
 
+    function setPanelMode(mode) {
+      state.uiMode = mode === 'worldview' ? 'worldview' : 'plot';
+      const showingPlot = state.uiMode === 'plot';
+      plotModeBtn.classList.toggle('active', showingPlot);
+      rotateModeBtn.classList.toggle('active', !showingPlot);
+      plotPanel.hidden = !showingPlot;
+      worldviewPanel.hidden = showingPlot;
+      viewport.setAttribute('aria-label', 'Plot with one pointer; rotate the octahedron with two or more pointers');
+      if (!showingPlot) updateWorldviewUI();
+    }
+
     function updateSnapFlags() {
       const topBottom = getTopBottomSnapInfo();
       const snappedTopBottom = topBottom.angle < 0.025;
@@ -1202,6 +1283,20 @@
     }
 
     const ROTATE_DRAG_SCALE = 0.0065;
+
+    function getViewportSize() {
+      return {
+        width: Math.max(1, viewport.clientWidth || window.innerWidth),
+        height: Math.max(1, viewport.clientHeight || window.innerHeight)
+      };
+    }
+
+    function resizeRendererToViewport() {
+      const { width, height } = getViewportSize();
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
 
     function applyScreenDeltaRotate(dx, dy) {
       if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
@@ -1279,9 +1374,10 @@
 
     function projectWorldToScreen(worldPoint) {
       const v = worldPoint.clone().project(camera);
+      const rect = renderer.domElement.getBoundingClientRect();
       return {
-        x: (v.x * 0.5 + 0.5) * window.innerWidth,
-        y: (-v.y * 0.5 + 0.5) * window.innerHeight,
+        x: (v.x * 0.5 + 0.5) * rect.width,
+        y: (-v.y * 0.5 + 0.5) * rect.height,
         visible: v.z > -1 && v.z <= 1
       };
     }
@@ -1464,8 +1560,150 @@
       updateStabilityLabels();
       truthy(!negativeStabilityLabel.classList.contains('active'), 'negative label inactive at zero');
       truthy(!positiveStabilityLabel.classList.contains('active'), 'positive label inactive at zero');
+      truthy(classifyWorldview(new THREE.Vector3(0, 0, 0)).label === 'Origin / null state', 'worldview classifier recognizes origin');
+      truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Approval-sensitive', 'worldview classifier recognizes empathy equator');
+      truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Calibrated empathy', 'worldview classifier recognizes higher empathy lane');
+      truthy(worldviewColorForPoint(new THREE.Vector3(0, -1, 0)) === '#dc2626', 'worldview color reaches collapse red');
+      truthy(worldviewColorForPoint(new THREE.Vector3(1, 0, 0)) === '#6b7280', 'worldview color reaches equator gray');
+      truthy(worldviewColorForPoint(new THREE.Vector3(0, 1, 0)) === '#2563eb', 'worldview color reaches peak blue');
     }
 
+
+
+    function clearPendingPointDrag() {
+      if (state.pendingPointDragTimer) {
+        clearTimeout(state.pendingPointDragTimer);
+        state.pendingPointDragTimer = null;
+      }
+      state.pendingPointPointerId = null;
+    }
+
+    function schedulePointDrag(event) {
+      clearPendingPointDrag();
+      state.pendingPointPointerId = event.pointerId;
+      state.pendingPointDragTimer = window.setTimeout(() => {
+        const point = state.activePointers.get(event.pointerId);
+        if (!point || state.activePointers.size !== 1 || state.gestureRotating || state.continuingGestureRotate) {
+          clearPendingPointDrag();
+          return;
+        }
+
+        state.lastX = point.x;
+        state.lastY = point.y;
+        startPointDrag({ clientX: point.x, clientY: point.y });
+        clearPendingPointDrag();
+      }, POINT_DRAG_DELAY_MS);
+    }
+
+    function rememberPointer(event) {
+      state.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    function forgetPointer(event) {
+      state.activePointers.delete(event.pointerId);
+    }
+
+    function getGestureMetrics() {
+      const points = [...state.activePointers.values()];
+      const center = points.reduce((acc, point) => {
+        acc.x += point.x;
+        acc.y += point.y;
+        return acc;
+      }, { x: 0, y: 0 });
+      center.x /= points.length;
+      center.y /= points.length;
+
+      let distance = 0;
+      for (const point of points) {
+        distance += Math.hypot(point.x - center.x, point.y - center.y);
+      }
+      distance /= points.length;
+
+      return { center, distance };
+    }
+
+    function beginMultiTouchGesture() {
+      if (state.activePointers.size < 2) return;
+      clearPendingPointDrag();
+      if (state.draggingPoint) {
+        state.draggingPoint = false;
+        viewport.classList.remove('dragging-point');
+      }
+      state.rotating = false;
+      state.rotateGrabLocal = null;
+      state.rotateGrabFaceIndex = null;
+      state.rotateGrabFaceNormal = null;
+      state.rotateFallbackActive = false;
+      state.rotateGrabValid = false;
+      state.gestureRotating = true;
+      state.continuingGestureRotate = false;
+      state.continuedGesturePointerId = null;
+      state.snapQuat = null;
+      state.angularSpeed = 0;
+      const metrics = getGestureMetrics();
+      state.lastGestureCenter = metrics.center;
+      state.lastGestureDistance = metrics.distance;
+      viewport.classList.add('rotating');
+    }
+
+    function updateMultiTouchGesture() {
+      if (!state.gestureRotating || state.activePointers.size < 2) return false;
+      const metrics = getGestureMetrics();
+      const lastCenter = state.lastGestureCenter || metrics.center;
+      applyScreenDeltaRotate(metrics.center.x - lastCenter.x, metrics.center.y - lastCenter.y);
+      if (state.lastGestureDistance > 0) {
+        state.zoomVel += (state.lastGestureDistance - metrics.distance) * 0.006;
+      }
+      state.lastGestureCenter = metrics.center;
+      state.lastGestureDistance = metrics.distance;
+      invalidateRender();
+      return true;
+    }
+
+    function continueGestureWithRemainingPointer() {
+      const [entry] = state.activePointers.entries();
+      if (!entry) return false;
+      const [pointerId, point] = entry;
+      state.gestureRotating = false;
+      state.continuingGestureRotate = true;
+      state.continuedGesturePointerId = pointerId;
+      state.lastGestureCenter = null;
+      state.lastGestureDistance = 0;
+      state.lastX = point.x;
+      state.lastY = point.y;
+      viewport.classList.add('rotating');
+      return true;
+    }
+
+    function endContinuedGestureRotate() {
+      state.continuingGestureRotate = false;
+      state.continuedGesturePointerId = null;
+      viewport.classList.remove('rotating');
+      maybeSnapView();
+    }
+
+    function endMultiTouchGestureIfNeeded() {
+      if (state.gestureRotating && state.activePointers.size === 1) {
+        continueGestureWithRemainingPointer();
+        return true;
+      }
+
+      if (state.gestureRotating && state.activePointers.size < 2) {
+        state.gestureRotating = false;
+        state.lastGestureCenter = null;
+        state.lastGestureDistance = 0;
+        viewport.classList.remove('rotating');
+        maybeSnapView();
+        return false;
+      }
+
+      if (state.continuingGestureRotate && state.activePointers.size === 0) {
+        endContinuedGestureRotate();
+        return false;
+      }
+
+      return state.gestureRotating || state.continuingGestureRotate;
+    }
     renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
     renderer.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -1473,21 +1711,39 @@
     }, { passive: false });
 
     renderer.domElement.addEventListener('pointerdown', (e) => {
+      rememberPointer(e);
+      try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+
       state.lastX = e.clientX;
       state.lastY = e.clientY;
 
-      if (e.button === 0) {
+      if (state.activePointers.size >= 2) {
+        e.preventDefault();
+        clearPendingPointDrag();
+        beginMultiTouchGesture();
+        return;
+      }
+
+      const primaryPointer = e.button === 0;
+      const wantsRotate = e.button === 2;
+      const wantsPlot = primaryPointer;
+
+      if (wantsPlot) {
+        if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+          e.preventDefault();
+          schedulePointDrag(e);
+          return;
+        }
+
         if (startPointDrag(e)) {
           e.preventDefault();
-          renderer.domElement.setPointerCapture(e.pointerId);
           return;
         }
       }
 
-      if (e.button === 2) {
+      if (wantsRotate) {
         if (startSurfaceRotate(e)) {
           e.preventDefault();
-          renderer.domElement.setPointerCapture(e.pointerId);
           return;
         }
       }
@@ -1499,8 +1755,26 @@
     });
 
     renderer.domElement.addEventListener('pointermove', (e) => {
+      if (state.activePointers.has(e.pointerId)) {
+        rememberPointer(e);
+      }
+
+      if (updateMultiTouchGesture()) {
+        e.preventDefault();
+        return;
+      }
+
       const dx = e.clientX - state.lastX;
       const dy = e.clientY - state.lastY;
+
+      if (state.continuingGestureRotate && e.pointerId === state.continuedGesturePointerId) {
+        applyScreenDeltaRotate(dx, dy);
+        state.lastX = e.clientX;
+        state.lastY = e.clientY;
+        invalidateRender();
+        e.preventDefault();
+        return;
+      }
 
       if (state.draggingPoint) {
         const hit = intersectSurface(e);
@@ -1523,7 +1797,12 @@
     });
 
     function endPointer(e) {
+      if (state.pendingPointPointerId === e.pointerId) clearPendingPointDrag();
+      forgetPointer(e);
+      const gestureStillActive = endMultiTouchGestureIfNeeded();
       invalidateRender();
+      if (gestureStillActive) return;
+      clearPendingPointDrag();
       if (state.draggingPoint) {
         state.draggingPoint = false;
         viewport.classList.remove('dragging-point');
@@ -1545,14 +1824,14 @@
     renderer.domElement.addEventListener('pointercancel', endPointer);
 
     resetBtn.addEventListener('click', resetView);
+    plotModeBtn.addEventListener('click', () => setPanelMode('plot'));
+    rotateModeBtn.addEventListener('click', () => setPanelMode('worldview'));
     rotateLeftBtn.addEventListener('click', () => { rotateTopView(-1); invalidateRender(); });
     rotateRightBtn.addEventListener('click', () => { rotateTopView(1); invalidateRender(); });
 
     window.addEventListener('resize', () => {
       invalidateRender();
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      resizeRendererToViewport();
       if (state.hoveredSlider) showSliderTooltip(state.hoveredSlider);
       if (state.hoveredAspectLabel) showAspectTooltip(state.hoveredAspectLabel);
       invalidateRender();
@@ -1593,6 +1872,7 @@
       const moving =
         state.rotating ||
         state.draggingPoint ||
+        state.continuingGestureRotate ||
         Boolean(state.snapQuat) ||
         state.angularSpeed > 1e-5 ||
         state.panVel.lengthSq() > 1e-6 ||
@@ -1613,6 +1893,8 @@
     installAspectTooltips();
     setupSliders();
     setupCoordInputs();
+    resizeRendererToViewport();
+    setPanelMode('plot');
     applyPointFromControls();
     resetView();
     runSelfTests();
