@@ -333,16 +333,16 @@
     });
 
     const pointerMarker = new THREE.Group();
-    const POINTER_RENDER_BACK = 4;
-    const POINTER_RENDER_FRONT = 60;
-    let pointerDepthMode = null;
-    pointerMarker.renderOrder = POINTER_RENDER_BACK;
+    const POINTER_RENDER_DEFAULT = 5;
+    const POINTER_LABEL_AVOID_RADIUS = 32;
+    pointerMarker.renderOrder = POINTER_RENDER_DEFAULT;
 
     const pointerOuterCone = new THREE.Mesh(
       new THREE.ConeGeometry(pointerConeRadius, pointerConeHeight, 26, 1),
       pointerMaterial
     );
     pointerOuterCone.position.y = pointerConeHeight * 1.5;
+    pointerOuterCone.renderOrder = POINTER_RENDER_DEFAULT;
     pointerMarker.add(pointerOuterCone);
 
     const pointerInnerCone = new THREE.Mesh(
@@ -351,6 +351,7 @@
     );
     pointerInnerCone.rotation.z = Math.PI;
     pointerInnerCone.position.y = pointerConeHeight * 0.5;
+    pointerInnerCone.renderOrder = POINTER_RENDER_DEFAULT;
     pointerMarker.add(pointerInnerCone);
 
     octaGroup.add(pointerMarker);
@@ -1866,28 +1867,71 @@
       const len = Math.hypot(dx, dy) || 1;
       const offset = state.snappedTopBottom ? 34 : 28;
       const hidden = !state.snappedTopBottom && isLabelOccluded(localPoint);
+      const ux = dx / len;
+      const uy = dy / len;
+      let labelX = baseScreen.x + ux * offset;
+      let labelY = baseScreen.y + uy * offset;
+
+      const pointerScreen = getPointerScreenInfo();
+      if (!hidden && pointerScreen && pointerScreen.depth < baseScreen.depth) {
+        const pointerRect = markerAvoidRect(pointerScreen);
+        let labelRect = labelRectFor(node, labelX, labelY);
+        if (screenRectsOverlap(labelRect, pointerRect)) {
+          labelX += ux * 30;
+          labelY += uy * 30;
+          labelRect = labelRectFor(node, labelX, labelY);
+          if (screenRectsOverlap(labelRect, pointerRect)) {
+            labelX += uy * 24;
+            labelY -= ux * 24;
+          }
+        }
+      }
 
       node.style.display = hidden ? 'none' : 'block';
-      node.style.left = `${baseScreen.x + (dx / len) * offset}px`;
-      node.style.top = `${baseScreen.y + (dy / len) * offset}px`;
+      node.style.left = `${labelX}px`;
+      node.style.top = `${labelY}px`;
       node.style.opacity = hidden ? '0' : '1';
       node.style.zIndex = `${Math.round((1 - baseScreen.depth) * 1000)}`;
     }
 
-    function updatePointerDepthStacking() {
-      if (state.snappedTopBottom || !state.surfaceLocked || state.point.lengthSq() < 1e-10) return;
+    function getPointerScreenInfo() {
+      if (state.snappedTopBottom || !state.surfaceLocked || state.point.lengthSq() < 1e-10) return null;
+      const screen = projectLocalToScreen(state.point);
+      if (!screen.visible) return null;
+      return screen;
+    }
 
-      const hidden = isLabelOccluded(state.point);
-      const mode = hidden ? 'back' : 'front';
-      if (pointerDepthMode === mode) return;
+    function screenRectsOverlap(a, b) {
+      return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    }
 
-      pointerDepthMode = mode;
-      const front = mode === 'front';
-      pointerMarker.renderOrder = front ? POINTER_RENDER_FRONT : POINTER_RENDER_BACK;
-      pointerOuterCone.renderOrder = pointerMarker.renderOrder;
-      pointerInnerCone.renderOrder = pointerMarker.renderOrder;
-      pointerMaterial.depthTest = !front;
-      pointerMaterial.depthWrite = !front;
+    function labelRectFor(node, x, y, padding = 2) {
+      const width = Math.max(48, node.offsetWidth || 96);
+      const height = Math.max(22, node.offsetHeight || 30);
+      return {
+        left: x - width / 2 - padding,
+        right: x + width / 2 + padding,
+        top: y - height / 2 - padding,
+        bottom: y + height / 2 + padding
+      };
+    }
+
+    function markerAvoidRect(pointerScreen) {
+      const r = POINTER_LABEL_AVOID_RADIUS;
+      return {
+        left: pointerScreen.x - r,
+        right: pointerScreen.x + r,
+        top: pointerScreen.y - r,
+        bottom: pointerScreen.y + r
+      };
+    }
+
+    function updatePointerLabelStacking() {
+      pointerMarker.renderOrder = POINTER_RENDER_DEFAULT;
+      pointerOuterCone.renderOrder = POINTER_RENDER_DEFAULT;
+      pointerInnerCone.renderOrder = POINTER_RENDER_DEFAULT;
+      pointerMaterial.depthTest = true;
+      pointerMaterial.depthWrite = true;
       pointerMaterial.needsUpdate = true;
     }
 
@@ -2410,7 +2454,7 @@
       applyCamera();
       pointerMarker.visible = !state.snappedTopBottom;
       updateCrosshairAndLabels();
-      updatePointerDepthStacking();
+      updatePointerLabelStacking();
       renderer.render(scene, camera);
       needsRender = moving;
     }
