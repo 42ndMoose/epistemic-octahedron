@@ -65,7 +65,7 @@
     .mode-toggle button { border: 0; border-radius: 999px; padding: 8px 10px; background: transparent; color: var(--muted); box-shadow: none; }
     .mode-toggle button.active { background: var(--surface-strong); color: var(--text); box-shadow: 0 4px 14px rgba(15,23,42,.08); }
     .panel-page[hidden] { display: none; }
-    .worldview-card { display: grid; gap: 10px; }
+    .worldview-card { display: grid; gap: 10px; max-height: min(54vh, 430px); overflow: auto; padding-right: 2px; }
     .worldview-pill { display: inline-flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; padding: 7px 10px; border-radius: 999px; background: var(--soft); color: var(--text); font-size: 12px; font-weight: 900; }
     .worldview-dot { width: 8px; height: 8px; border-radius: 999px; background: currentColor; box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06); flex: 0 0 auto; }
     .worldview-pill.origin, .worldview-pill.borderline { color: #6b7280; }
@@ -367,6 +367,14 @@
     const WORLD_X = new THREE.Vector3(1, 0, 0);
     const WORLD_Y = new THREE.Vector3(0, 1, 0);
     const WORLD_Z = new THREE.Vector3(0, 0, 1);
+    const OCTA_VERTEX_LOCALS = [
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, -1, 0),
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, -1)
+    ];
 
     const state = {
       target: new THREE.Vector3(0, 0, 0),
@@ -893,86 +901,266 @@
     const ATLAS_STRONG_NEAR_VERTEX_START = ATLAS_BAND * 6;
 
     const WORLDVIEW_LABELS = {
-      E: {
-        borderline: ['Approval-sensitive', 'They pick up emotional pressure, approval signals, and social tension quickly. They tend to overread reactions when their reality-contact is not strong enough.'],
-        positive: ['Empathetic', 'They show active concern for people while still preserving some contact with facts and consequences.'],
-        strongPositive: ['Compassionate', 'Their empathy is more stable and useful: care is active without needing every discomfort to become proof of harm.'],
-        higherPositive: ['Calibrated empathy', 'They care without losing proportion. They can notice suffering without turning every discomfort into proof of harm.'],
-        strongHigherPositive: ['Clear-eyed compassion', 'They are compassionate while still staying reality-bound. They can help people without needing a victim story, villain story, or emotional performance.'],
-        negative: ['Main-character victimhood', 'They interpret discomfort, disagreement, or limits as personal injury. They tend to make suffering the center of the story.'],
-        strongNegative: ['Grievance-core identity', 'They organize their identity around injury, resentment, or being wronged. Correction feels like an attack because the grievance has become self-protective.'],
-        deeperNegative: ['Doomer', 'They see decline, suffering, or failure as the main frame. They tend to lose agency because the negative pattern feels total.'],
-        strongDeeperNegative: ['Resentful doomer', 'They combine despair with blame. They tend to treat collapse as proof that resentment was justified.']
+      "E": {
+            "borderline": [
+                  "Approval Pressure",
+                  "They are highly responsive to emotional tone, social approval, rejection, discomfort, and interpersonal tension. They tend to notice harm-signals quickly, which can make them socially aware, but the pattern is unstable near the equator because their concern is not yet strongly governed by reality-contact, proportion, or practical restraint. Under pressure, they may overread neutral feedback, mistake discomfort for harm, or treat correction as rejection."
+            ],
+            "positive": [
+                  "Empathy",
+                  "They actively register the human stake of a situation. They tend to notice pain, vulnerability, exclusion, dignity, and emotional consequence without immediately turning those signals into ideology or accusation. This is a positive expression when concern remains connected to facts, context, and proportional response."
+            ],
+            "strongPositive": [
+                  "Compassion",
+                  "They are more than emotionally sensitive; they are oriented toward helping in a way that can still respect truth and consequence. They tend to care about what actually benefits people, not only what feels nice in the moment. This pattern becomes stronger when it can handle boundaries, accountability, and difficult facts without losing concern."
+            ],
+            "higherPositive": [
+                  "Calibrated Empathy",
+                  "They care without losing proportion. They can notice suffering, vulnerability, and emotional reality without turning every discomfort into proof of harm. They tend to help better because their concern is regulated by truth, limits, timing, and responsibility."
+            ],
+            "strongHigherPositive": [
+                  "Clear-eyed Compassion",
+                  "They remain compassionate while staying reality-bound. They can help people without needing a victim story, villain story, emotional performance, or moral spotlight. Their care is strong enough to face uncomfortable truths, set boundaries, and still protect the personhood of those involved."
+            ],
+            "negative": [
+                  "Victimhood Loop",
+                  "They interpret discomfort, disagreement, criticism, limits, or unequal outcomes as injury. They tend to make suffering the center of the story, then use that suffering to block correction. The issue is not that pain is fake; the issue is that pain becomes the worldview's organizing shield."
+            ],
+            "strongNegative": [
+                  "Grievance Core",
+                  "They organize identity around being wronged, excluded, betrayed, or oppressed. They tend to protect the grievance because it explains the world, gives moral status, and justifies resentment. Correction feels threatening because it weakens the story that holds the worldview together."
+            ],
+            "deeperNegative": [
+                  "Doomerism",
+                  "They see decline, suffering, failure, corruption, or collapse as the main frame. They tend to lose agency because the negative pattern feels total. This worldview may notice real problems, but it becomes unstable when it treats repair, responsibility, or hope as naive."
+            ],
+            "strongDeeperNegative": [
+                  "Resentful Doomerism",
+                  "They combine despair with blame. They tend to treat collapse as proof that their resentment was justified. The worldview does not only expect things to fail; it starts wanting failure to confirm its bitterness."
+            ]
       },
-      W: {
-        borderline: ['Analysis-locked', 'They see too many angles at once and can get stuck before acting. They tend to confuse more reflection with better judgment.'],
-        positive: ['Discerning', 'They can separate signal from noise and make proportionate judgments without needing perfect information.'],
-        strongPositive: ['Judicious', 'Their judgment is steadier and more context-aware under uncertainty.'],
-        higherPositive: ['Balanced judgment', 'They weigh context, limits, evidence, and consequences without becoming vague. They typically know when to pause, when to act, and when to revise.'],
-        strongHigherPositive: ['Steady judgment', 'They are hard to pull into panic, slogans, or cheap certainty. Their judgment tends to stay proportionate under pressure.'],
-        negative: ['Fake-deep discernment', 'They sound reflective, symbolic, or profound, but the insight is not strongly tied to reality. They tend to turn vagueness into authority.'],
-        strongNegative: ['Fake-deep certainty', 'They use depth-language to protect beliefs from correction. They typically treat their interpretation as superior even when evidence is weak.'],
-        deeperNegative: ['Narrative spinner', 'They are good at framing events in ways that steer perception. They tend to shape the story before they face the truth.'],
-        strongDeeperNegative: ['Gaslight strategist', 'They use interpretation, social pressure, or selective context to make others doubt reality. They tend to control the frame instead of answering to the facts.']
+      "W": {
+            "borderline": [
+                  "Analysis Lock",
+                  "They can see complexity, nuance, consequences, and possible hidden problems, but that awareness can stall action. They tend to keep processing instead of deciding because every answer feels incomplete. At its better edge, this protects them from shallow certainty. At its weaker edge, it becomes paralysis, overthinking, and fear of committing to a judgment."
+            ],
+            "positive": [
+                  "Discernment",
+                  "They are good at reading context, proportion, timing, limits, and hidden implications. They tend to ask what a fact means, how it applies, and what consequence follows from it. This is positive when their interpretation remains grounded rather than drifting into vagueness, symbolism, or unfalsifiable depth."
+            ],
+            "strongPositive": [
+                  "Good Judgment",
+                  "They show careful, proportionate judgment under uncertainty. They tend to avoid cheap certainty, overreaction, and shallow rule-following. They can weigh context without using complexity as an excuse to avoid responsibility."
+            ],
+            "higherPositive": [
+                  "Balanced Judgment",
+                  "They weigh context, facts, consequences, limits, and human stakes without becoming vague. They tend to know when to pause, when to act, when to revise, and when a detail actually matters. This pattern is more reliable than mere cleverness because it stays answerable to reality."
+            ],
+            "strongHigherPositive": [
+                  "Steady Judgment",
+                  "They are hard to pull into panic, slogans, herd behavior, emotional bait, or cheap certainty. Their judgment tends to stay stable under pressure. They can be corrected without collapsing, and they can stay firm without becoming rigid."
+            ],
+            "negative": [
+                  "Fake Depth",
+                  "They sound reflective, symbolic, spiritual, nuanced, or profound, but the insight is weakly tied to reality. They tend to turn vagueness into authority. This pattern often hides behind deep-sounding language while avoiding evidence, practical consequence, or clear accountability."
+            ],
+            "strongNegative": [
+                  "Fake-depth Certainty",
+                  "They use depth-language to protect beliefs from correction. They typically treat their interpretation as superior even when the evidence is weak, absent, or contradicted. Instead of uncertainty leading them back to reality, uncertainty becomes a place to hide."
+            ],
+            "deeperNegative": [
+                  "Narrative Control",
+                  "They are good at framing events in ways that steer perception. They tend to shape the story before they face the truth. This pattern uses interpretation as control: choosing what matters, what gets ignored, who looks guilty, and which conclusion feels inevitable."
+            ],
+            "strongDeeperNegative": [
+                  "Gaslighting",
+                  "They use interpretation, social pressure, selective context, denial, or reframing to make others doubt reality. They tend to control the frame instead of answering to the facts. This is a more severe form of narrative control because correction is actively redirected back onto the person noticing the problem."
+            ]
       },
-      P: {
-        borderline: ['No-filter realist', 'They move straight toward what seems obvious, workable, or true. They typically miss tone, timing, and the human cost of saying it badly.'],
-        positive: ['Practical', 'They respect what works, what costs something, and what can actually be done.'],
-        strongPositive: ['Grounded', 'They are more reliably anchored in constraint, tradeoff, and workable execution.'],
-        higherPositive: ['Effective realism', 'They care about what actually works, what costs something, and what survives contact with reality. They do not confuse good intentions with good results.'],
-        strongHigherPositive: ['Locked-in execution', 'They act with discipline, priority, and follow-through. They can execute without turning efficiency into coldness.'],
-        negative: ['Outcome-only realism', 'They treat results, control, or efficiency as the whole story. They tend to excuse unnecessary harm by calling it realism.'],
-        strongNegative: ['Ruthless operator', 'They understand incentives and constraints, but empathy and accountability have been pushed out. They can be effective while becoming destructive.'],
-        deeperNegative: ['Clout opportunist', 'They read incentives and openings quickly, especially social reward. They tend to chase advantage before responsibility.'],
-        strongDeeperNegative: ['Predatory opportunist', "They use systems, incentives, and other people's weakness for gain. They typically understand the game well enough to exploit it."]
+      "P": {
+            "borderline": [
+                  "No-filter Realism",
+                  "They move quickly toward what seems obvious, practical, direct, or true. They tend to value plain speech and dislike emotional padding, but near the equator this can miss timing, tone, human cost, or context. People in this pattern may think they are simply being honest, while others experience them as careless, harsh, or needlessly abrasive."
+            ],
+            "positive": [
+                  "Practicality",
+                  "They respect constraints, consequences, cost, effort, incentives, execution, and what can actually be done. They tend to separate good intentions from workable plans. This is positive when practical action remains answerable to truth, people affected, and long-term judgment."
+            ],
+            "strongPositive": [
+                  "Groundedness",
+                  "They stay in contact with reality. They tend to prefer workable, testable, concrete, and responsible answers over fantasy, moral performance, or abstract posturing. This is not coldness; it is the ability to keep judgment attached to real conditions."
+            ],
+            "higherPositive": [
+                  "Effective Realism",
+                  "They care about what actually works, what costs something, and what survives contact with reality. They tend to turn judgment into useful action instead of staying in theory, sentiment, or complaint. This is positive because effectiveness remains connected to truth and responsibility."
+            ],
+            "strongHigherPositive": [
+                  "Locked-in Execution",
+                  "They act with discipline, priority, and follow-through. They tend to finish, organize, adapt, and make tradeoffs without constantly needing permission or emotional reassurance. This is mature when execution does not become robotic, callous, or detached from moral consequence."
+            ],
+            "negative": [
+                  "Outcome-only Realism",
+                  "They treat results, control, efficiency, survival, or winning as the whole story. They tend to excuse unnecessary harm by calling it realistic. The problem is not practicality itself; the problem is practicality cut loose from people, wisdom, and accountability."
+            ],
+            "strongNegative": [
+                  "Ruthless Realism",
+                  "They understand incentives, leverage, constraints, and consequences, but empathy and accountability have been pushed out. They may be effective in the short term, but the worldview becomes destructive because it treats harm as acceptable whenever it serves the result."
+            ],
+            "deeperNegative": [
+                  "Clout-chasing",
+                  "They read incentives and openings quickly, especially social reward, status, attention, trend value, or audience reaction. They tend to chase advantage before responsibility. The pattern is not mere ambition; it is action guided by reward signals more than truth or maturity."
+            ],
+            "strongDeeperNegative": [
+                  "Predation",
+                  "They use systems, incentives, loopholes, and other people's weakness for gain. They typically understand the game well enough to exploit it. This is deeper than opportunism because the worldview becomes organized around taking advantage rather than building, serving, or correcting."
+            ]
       },
-      K: {
-        borderline: ['Status-defensive', 'They care too much about looking informed, correct, or respected. They tend to protect their image before they protect the truth.'],
-        positive: ['Informed', 'They have usable facts and some awareness of what is known, unknown, and uncertain.'],
-        strongPositive: ['Knowledgeable', 'They can bring more developed knowledge to bear without fully replacing judgment with expertise.'],
-        higherPositive: ['Evidence-backed clarity', 'They use facts to clarify reality rather than to protect ego. They tend to update when better evidence arrives.'],
-        strongHigherPositive: ['Reality-tracking expertise', 'They know the subject and can still be corrected by reality. Their expertise helps judgment instead of replacing it.'],
-        negative: ['Factoid defensiveness', 'They use facts, trivia, jargon, or technical fragments as armor. They tend to look for winning points instead of truth.'],
-        strongNegative: ['Confidently-wrong expertise', 'They present themselves as informed while missing context, limits, or correction. They tend to mistake fluency for understanding.'],
-        deeperNegative: ['Bad-faith rationalizer', 'They use reasons after the fact to excuse what they already wanted. They tend to make self-serving choices look principled.'],
-        strongDeeperNegative: ['Weaponized rationalizer', 'They turn facts, logic, or technical language into a tool for evasion or attack. They use reasoning to protect distortion instead of correction.']
+      "K": {
+            "borderline": [
+                  "Status Defense",
+                  "They are attached to being seen as correct, informed, competent, or respectable. They tend to treat disagreement as a threat to status rather than as a chance to improve accuracy. This pattern often shows up as correction-resistance, credential-flexing, selective facts, or emotional tension around being wrong."
+            ],
+            "positive": [
+                  "Informedness",
+                  "They have relevant facts, context, or subject knowledge available. They tend to care whether claims are true, sourced, and specific. This is positive when knowledge is used to clarify reality rather than protect ego or overwhelm people with information."
+            ],
+            "strongPositive": [
+                  "Knowledge",
+                  "They have a stronger grasp of facts, technical detail, references, history, or evidence. They tend to understand the informational side of a situation. This becomes mature only when knowledge remains open to context, correction, and real-world application."
+            ],
+            "higherPositive": [
+                  "Evidence-backed Clarity",
+                  "They use facts to clarify reality rather than to protect their ego. They tend to separate what is known, unknown, likely, and unsupported. This pattern cuts through confusion because evidence is being used as a corrective force, not as a status weapon."
+            ],
+            "strongHigherPositive": [
+                  "Reality-tracking Expertise",
+                  "They know the subject and can still be corrected by reality. Their expertise helps judgment instead of replacing it. They tend to notice when old knowledge no longer applies, when the situation has changed, and when the facts need to be interpreted with care."
+            ],
+            "negative": [
+                  "Factoid Armor",
+                  "They use facts, trivia, jargon, technical fragments, links, or isolated data points as armor. They tend to look for winning points instead of truth. Information is being used to defend the self-image of being right rather than to clarify reality."
+            ],
+            "strongNegative": [
+                  "Confident Ignorance",
+                  "They present themselves as informed while missing context, limits, uncertainty, or correction. They tend to mistake fluency for understanding. This pattern is dangerous because it feels confident enough to influence others while being too unstable to reliably track truth."
+            ],
+            "deeperNegative": [
+                  "Bad-faith Reasoning",
+                  "They use reasons after the fact to excuse what they already wanted to do. They tend to make self-serving choices look principled, logical, necessary, or morally justified. The reasoning is not sincerely leading them to truth; it is protecting the preferred conclusion."
+            ],
+            "strongDeeperNegative": [
+                  "Weaponized Reasoning",
+                  "They turn facts, logic, technical language, or argument structure into a tool for evasion, attack, or control. They can sound rational while using reasoning against truth. This pattern is severe because the correction mechanism itself has been repurposed to defend distortion."
+            ]
       },
-      EW: {
-        borderline: ['Good-vibes idealist', 'They want the humane or hopeful answer to be true. They tend to underrate constraint, tradeoff, and ugly facts.'],
-        positive: ['Compassionate discernment', 'They notice suffering, but they also ask what is true, what helps, what harms, and what responsibility requires.'],
-        strongPositive: ['Principled compassion', 'They stay humane without becoming soft, gullible, or performative. Their care is guided by judgment, not by emotional pressure alone.'],
-        negative: ['Savior-complex altruist', 'They want to help, but the helping becomes self-flattering, controlling, or reality-detached. They tend to need the role of rescuer.'],
-        strongNegative: ['Coercive savior', 'They use care-language to pressure, control, or override others. They tend to justify force by calling it compassion.']
+      "EW": {
+            "borderline": [
+                  "Good-vibes Idealism",
+                  "They want the humane, hopeful, inclusive, or emotionally clean answer to be true. They tend to underrate tradeoffs, limits, costs, bad incentives, and ugly facts. This can look kind and uplifting on the surface, but near the equator it becomes fragile because the worldview depends too much on how things should feel and not enough on what reality can support."
+            ],
+            "positive": [
+                  "Compassionate Discernment",
+                  "They notice suffering, but they also ask what is true, what actually helps, what harms, and what responsibility requires. They tend to avoid both cold judgment and blind sympathy. This pattern is strong because care is being guided by context."
+            ],
+            "strongPositive": [
+                  "Principled Compassion",
+                  "They stay humane without becoming soft, gullible, performative, or easily manipulated. Their care is guided by judgment rather than by emotional pressure alone. They can protect people while still requiring truth, boundaries, and accountability."
+            ],
+            "negative": [
+                  "Pathological Altruism",
+                  "They want to help, protect, rescue, include, or care, but the helping becomes detached from reality. They tend to enable weakness, reward dysfunction, flatten responsibility, or make themselves morally central through the act of helping. The savior-complex element is present when they need to be needed more than they need the truth."
+            ],
+            "strongNegative": [
+                  "Coercive Altruism",
+                  "They use care-language to pressure, control, shame, or override others. They tend to justify force by calling it compassion. This pattern can sound humane while removing responsibility, consent, boundaries, or reality from the people it claims to protect."
+            ]
       },
-      WP: {
-        borderline: ['Trust-locked skeptic', 'They stay guarded because they expect hidden motives, weak reasoning, or bad incentives. They can protect themselves from nonsense, but they may also block correction.'],
-        positive: ['Strategic restraint', 'They can hold back because timing, context, and consequence matter. They do not treat every impulse to act as wisdom.'],
-        strongPositive: ['Disciplined strategy', 'They understand when to move, when to wait, and what tradeoffs matter. They stay practical without losing context or accountability.'],
-        negative: ['Power-gamer strategist', 'They understand people, timing, and systems, but use that insight mainly to win. They tend to treat reality as a board to manipulate.'],
-        strongNegative: ['Predatory power-gamer', 'They combine strategy with low accountability. They typically use people, narratives, and incentives as pieces.']
+      "WP": {
+            "borderline": [
+                  "Trust Lock",
+                  "They are cautious because they expect hidden motives, weak reasoning, manipulation, or institutional failure. This can protect them from scams, propaganda, and social pressure, but it can also lock them away from correction. They may reject true information because it arrives through a source, person, or institution they already distrust."
+            ],
+            "positive": [
+                  "Strategic Restraint",
+                  "They can hold back because timing, context, and consequence matter. They tend to understand that not every true thing must be said immediately and not every possible action should be taken. This is positive when restraint serves reality and responsibility rather than avoidance."
+            ],
+            "strongPositive": [
+                  "Disciplined Strategy",
+                  "They understand when to move, when to wait, and what tradeoffs matter. They tend to act with timing, patience, and practical intelligence. This is mature when strategy remains answerable to truth, people affected, and long-term consequence."
+            ],
+            "negative": [
+                  "Manipulative Control",
+                  "They understand people, timing, pressure, incentives, and systems, but use that insight mainly to steer outcomes in their favor. They tend to treat truth as something to manage and people as something to move. This is strategic, but \"strategy\" is not the core issue; manipulation is."
+            ],
+            "strongNegative": [
+                  "Predatory Control",
+                  "They combine planning, pressure, and low accountability. They typically use people, narratives, incentives, and weaknesses as tools. This pattern is more dangerous than basic manipulation because it becomes systematic: control is not an accident, but the operating method."
+            ]
       },
-      PK: {
-        borderline: ['Systems-only operator', 'They understand facts, systems, tools, and function, but the human and wisdom dimensions are thin. People like them can solve the mechanism while missing the meaning.'],
-        positive: ['Competent operator', 'They know how to get things done. They usually read systems, incentives, and constraints well.'],
-        strongPositive: ['High-agency operator', 'They are unusually effective at turning knowledge into action. They can move through complex systems without needing constant permission.'],
-        negative: ['Logic-bro rationalizer', 'They use logic as a shield against empathy, context, or accountability. They tend to confuse emotional detachment with objectivity.'],
-        strongNegative: ['Self-sealing logic-bro', 'They build a closed reasoning loop that absorbs counterevidence. They typically use logic-language to avoid being corrected.']
+      "PK": {
+            "borderline": [
+                  "Systems Brain",
+                  "They understand systems, tools, procedures, facts, mechanisms, and functional outcomes, but the human and wisdom dimensions are thin. They tend to solve the mechanism while missing the meaning. This pattern can be useful in technical work, but near the equator it can reduce people to inputs, outputs, cases, risks, metrics, or problems to manage."
+            ],
+            "positive": [
+                  "Competence",
+                  "They know how to get things done. They tend to read systems, incentives, steps, resources, and constraints well. This is positive when competence serves reality and responsibility rather than ego, control, or exploitation."
+            ],
+            "strongPositive": [
+                  "High Agency",
+                  "They are unusually effective at turning knowledge into action. They tend to move through complex systems, solve problems, make things happen, and adapt quickly. This is positive when high agency remains accountable to people, truth, and consequence."
+            ],
+            "negative": [
+                  "Cold Logic",
+                  "They use logic, efficiency, consistency, or technical correctness as a shield against empathy, context, and accountability. They tend to confuse emotional detachment with objectivity. The issue is not logic itself; the issue is logic cut away from the full reality it is supposed to serve."
+            ],
+            "strongNegative": [
+                  "Self-sealing Logic",
+                  "They build a closed reasoning loop that absorbs counterevidence. They typically reinterpret every objection as proof that they were already right. This pattern is hard to correct because the worldview does not simply reject evidence; it converts correction into fuel."
+            ]
       },
-      KE: {
-        borderline: ['Credential-chasing advocate', 'They care about people, but they lean too hard on approved sources, expert signals, statistics, and institutional language. They tend to outsource judgment to whatever looks authoritative.'],
-        positive: ['Informed advocacy', 'They care about affected people and use evidence to guide that concern. They tend to ask whether the proposed help actually works.'],
-        strongPositive: ['Humane expertise', 'They combine knowledge with concern for people. They can handle technical reality without becoming detached from human consequences.'],
-        negative: ['Credentialed virtue-signaler', 'They combine approved knowledge with moral performance. They tend to borrow authority from credentials, causes, or institutions instead of showing mature judgment.'],
-        strongNegative: ['Scripted zealot', 'They speak from a preloaded cause, ideology, or moral script. They tend to repeat the frame even when reality pushes against it.']
+      "KE": {
+            "borderline": [
+                  "Credentialism",
+                  "They care about people or causes, but they lean too hard on approved sources, expert signals, institutional language, statistics, status markers, or fashionable consensus. They tend to outsource judgment to whatever appears authoritative. This can make them sound informed while still being easy to steer through selective expertise, headlines, moral framing, or social proof."
+            ],
+            "positive": [
+                  "Informed Advocacy",
+                  "They care about affected people and use evidence to guide that concern. They tend to ask whether a proposed solution actually works, who it affects, and what unintended consequences may follow. This pattern is stronger than emotional advocacy because it is willing to be corrected by facts."
+            ],
+            "strongPositive": [
+                  "Humane Expertise",
+                  "They combine knowledge with concern for people. They can handle technical reality without becoming detached from human consequence. They tend to know both what the evidence says and why it matters to real lives."
+            ],
+            "negative": [
+                  "Credentialed Moralism",
+                  "They combine approved knowledge with moral performance. They tend to borrow authority from credentials, institutions, causes, social consensus, or expert language instead of showing mature judgment. The problem is not expertise or morality; the problem is moral certainty outsourced to status signals."
+            ],
+            "strongNegative": [
+                  "Ideological Capture",
+                  "They speak from a preloaded cause, ideology, or moral script. They tend to repeat the frame even when reality pushes against it. The worldview has been captured because the ideology now decides what counts as evidence, harm, justice, truth, and acceptable speech."
+            ]
       }
-    };
+};
 
     const INTEGRATED_LABELS = {
-      positive: ['Philosophically mature / integrated', 'This is broad positive integration: empathy, practicality, wisdom, and knowledge are correcting each other instead of collapsing into one identity-fixed style.'],
-      strongPositive: ['Near-peak integrated maturity', 'This is near-peak integration: the worldview is highly reality-responsive, context-flexible, and balanced across the octahedron.'],
-      negative: ['Brainrot collapse', 'They are pulled into a low-reality loop where fragments, vibes, slogans, and emotional reward replace judgment. Their worldview stops repairing itself.'],
-      strongNegative: ['Near-total reality collapse', 'They are close to full epistemic breakdown. Their beliefs still have a recognizable flavor, but correction has very little power.']
-    };
+      "positive": [
+            "Mature Judgment",
+            "They show strong, reality-bound judgment across people, facts, consequences, context, and correction. They tend to reason in a way that does not collapse into sentiment, cold utility, shallow facts, or vague wisdom. In practical terms, their reasoning and morals are approaching the model's objectively optimal form: humane, informed, workable, context-aware, and self-corrective."
+      ],
+      "strongPositive": [
+            "Near-peak Maturity",
+            "They are close to the highest stability range of the model. Their reasoning is not perfect or all-knowing, but it is strongly governed by reality, correction, proportion, and responsibility. They can shift emphasis depending on the situation without losing moral or epistemic orientation."
+      ],
+      "negative": [
+            "Brain Rot Collapse",
+            "They are pulled into a low-reality loop where fragments, vibes, slogans, outrage, irony, tribal reward, and emotional stimulation replace judgment. Their worldview stops repairing itself because the feedback loop is more rewarding than correction. This can happen to individuals, groups, institutions, or online communities when reality-contact is repeatedly sacrificed for stimulation."
+      ],
+      "strongNegative": [
+            "Reality Collapse",
+            "They are close to full epistemic breakdown. Their beliefs may still have a recognizable flavor, but correction has very little power. Evidence, consequence, and contradiction are noticed only when they can be bent back into the collapsing worldview."
+      ]
+};
 
     function percentText(value) {
       const clean = Math.max(0, Math.min(100, value));
@@ -1050,10 +1238,10 @@
         return makeWorldviewEntry('Origin / null state', 'origin', 'Center', 'The origin is reserved for pre-philosophical absence. No active worldview has formed strongly enough to be plotted on the surface.');
       }
       if (Math.abs(point.y - 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
-        return makeWorldviewEntry('Objective peak philosophical maturity', 'peak', 'Top vertex', 'This is the exact upper vertex: empathy, practicality, wisdom, and knowledge are integrated under maximal positive epistemic stability.');
+        return makeWorldviewEntry('Objective Peak Maturity', 'peak', 'Top vertex', "They are at the model's highest possible stability point. Concern for people, real-world constraint, facts, context, and correction all work together. Their reasoning and moral judgment are as reality-bound, self-corrective, proportionate, and objectively mature as the model allows. They can still learn new facts, but their way of judging is maximally stable.");
       }
       if (Math.abs(point.y + 1) < ATLAS_VERTEX_EPS && lateral < ATLAS_VERTEX_EPS) {
-        return makeWorldviewEntry('Pure epistemic collapse', 'collapse', 'Lower vertex', 'They are maximally detached from reality-governed correction. At this point, the specific lateral style matters less than the collapse itself.');
+        return makeWorldviewEntry('Pure Collapse', 'collapse', 'Lower vertex', 'They are maximally detached from reality-governed correction. At this point, the specific lateral style matters less than the collapse itself. The worldview no longer lets truth, consequence, affected people, facts, context, or accountability govern its structure.');
       }
       if (ay <= ATLAS_BORDER_LIMIT) {
         const entry = labelEntry(set, 'borderline');
@@ -1468,15 +1656,159 @@
       }
     }
 
-    function applyHitToPoint(hit) {
-      const localPoint = projectPointToOctaSurface(octaGroup.worldToLocal(hit.point.clone()));
-      state.point.copy(localPoint);
+    function applyLocalPointToPoint(localPoint) {
+      const surfacePoint = projectPointToOctaSurface(localPoint);
+      state.point.copy(surfacePoint);
       state.surfaceLocked = true;
-      if (Math.abs(localPoint.y) > 1e-6) state.stabilitySign = Math.sign(localPoint.y);
+      if (Math.abs(surfacePoint.y) > 1e-6) state.stabilitySign = Math.sign(surfacePoint.y);
       updatePointerNormalFromPoint();
-      controlsFromPoint(localPoint);
+      controlsFromPoint(surfacePoint);
       applyPointVisuals();
       invalidateRender();
+    }
+
+    function applyHitToPoint(hit) {
+      applyLocalPointToPoint(octaGroup.worldToLocal(hit.point.clone()));
+    }
+
+    function screenPointFromPointer(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        rect
+      };
+    }
+
+    function setNDCFromScreenPoint(screenPoint) {
+      const rect = screenPoint.rect || renderer.domElement.getBoundingClientRect();
+      ndc.x = (screenPoint.x / rect.width) * 2 - 1;
+      ndc.y = -(screenPoint.y / rect.height) * 2 + 1;
+    }
+
+    function cross2D(o, a, b) {
+      return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    }
+
+    function getProjectedOctaHull() {
+      const projected = OCTA_VERTEX_LOCALS.map((local, index) => {
+        const screen = projectLocalToScreen(local);
+        return { ...screen, local: local.clone(), index };
+      }).filter((point) => point.visible);
+
+      if (projected.length < 3) return projected;
+
+      const unique = [];
+      for (const point of projected.sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x)) {
+        const prev = unique[unique.length - 1];
+        if (!prev || Math.abs(prev.x - point.x) > 0.25 || Math.abs(prev.y - point.y) > 0.25) {
+          unique.push(point);
+        }
+      }
+
+      if (unique.length <= 3) return unique;
+
+      const lower = [];
+      for (const point of unique) {
+        while (lower.length >= 2 && cross2D(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) {
+          lower.pop();
+        }
+        lower.push(point);
+      }
+
+      const upper = [];
+      for (let i = unique.length - 1; i >= 0; i--) {
+        const point = unique[i];
+        while (upper.length >= 2 && cross2D(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) {
+          upper.pop();
+        }
+        upper.push(point);
+      }
+
+      upper.pop();
+      lower.pop();
+      return lower.concat(upper);
+    }
+
+    function pointInsidePolygon2D(point, polygon) {
+      if (polygon.length < 3) return false;
+      let inside = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const a = polygon[i];
+        const b = polygon[j];
+        const intersects = ((a.y > point.y) !== (b.y > point.y)) &&
+          point.x < ((b.x - a.x) * (point.y - a.y)) / ((b.y - a.y) || 1e-9) + a.x;
+        if (intersects) inside = !inside;
+      }
+      return inside;
+    }
+
+    function closestPointOnSegment2D(point, a, b) {
+      const abx = b.x - a.x;
+      const aby = b.y - a.y;
+      const lenSq = abx * abx + aby * aby;
+      const rawT = lenSq < 1e-9 ? 0 : ((point.x - a.x) * abx + (point.y - a.y) * aby) / lenSq;
+      const t = THREE.MathUtils.clamp(rawT, 0, 1);
+      const x = a.x + abx * t;
+      const y = a.y + aby * t;
+      const dx = point.x - x;
+      const dy = point.y - y;
+      return { x, y, t, a, b, distSq: dx * dx + dy * dy };
+    }
+
+    function closestPointOnPolygon2D(point, polygon) {
+      if (!polygon.length) return null;
+      if (polygon.length === 1) return { ...polygon[0], t: 0, a: polygon[0], b: polygon[0], distSq: 0 };
+
+      let best = null;
+      for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+        const candidate = closestPointOnSegment2D(point, a, b);
+        if (!best || candidate.distSq < best.distSq) best = candidate;
+      }
+      return best;
+    }
+
+    function intersectSurfaceAtScreenPoint(screenPoint) {
+      setNDCFromScreenPoint(screenPoint);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObject(pickMesh, false);
+      return hits.length ? hits[0] : null;
+    }
+
+    function fallbackPointFromPointer(event) {
+      syncSceneMatrices();
+
+      const pointer = screenPointFromPointer(event);
+      const hull = getProjectedOctaHull();
+      if (hull.length < 2) return state.point.clone();
+
+      const insideHull = pointInsidePolygon2D(pointer, hull);
+      const clamped = insideHull ? pointer : closestPointOnPolygon2D(pointer, hull);
+      if (!clamped) return state.point.clone();
+
+      const hit = intersectSurfaceAtScreenPoint({ x: clamped.x, y: clamped.y, rect: pointer.rect });
+      if (hit) return octaGroup.worldToLocal(hit.point.clone());
+
+      if (!insideHull && clamped.a && clamped.b) {
+        return clamped.a.local.clone().lerp(clamped.b.local, clamped.t);
+      }
+
+      return state.point.clone();
+    }
+
+    function applyPointerToPoint(event) {
+      const hit = intersectSurface(event);
+      if (hit) {
+        applyHitToPoint(hit);
+        return true;
+      }
+
+      const fallback = fallbackPointFromPointer(event);
+      if (!fallback) return false;
+      applyLocalPointToPoint(fallback);
+      return true;
     }
 
     function projectWorldToScreen(worldPoint) {
@@ -1485,6 +1817,7 @@
       return {
         x: (v.x * 0.5 + 0.5) * rect.width,
         y: (-v.y * 0.5 + 0.5) * rect.height,
+        depth: v.z,
         visible: v.z > -1 && v.z <= 1
       };
     }
@@ -1535,6 +1868,7 @@
       node.style.left = `${baseScreen.x + (dx / len) * offset}px`;
       node.style.top = `${baseScreen.y + (dy / len) * offset}px`;
       node.style.opacity = hidden ? '0' : '1';
+      node.style.zIndex = `${Math.round((1 - baseScreen.depth) * 1000)}`;
     }
 
     function updateCrosshairAndLabels() {
@@ -1669,8 +2003,8 @@
       truthy(!negativeStabilityLabel.classList.contains('active'), 'negative label inactive at zero');
       truthy(!positiveStabilityLabel.classList.contains('active'), 'positive label inactive at zero');
       truthy(classifyWorldview(new THREE.Vector3(0, 0, 0)).label === 'Origin / null state', 'worldview classifier recognizes origin');
-      truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Approval-sensitive', 'worldview classifier recognizes empathy equator');
-      truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Calibrated empathy', 'worldview classifier recognizes higher empathy lane');
+      truthy(classifyWorldview(new THREE.Vector3(1, 0, 0)).label === 'Approval Pressure', 'worldview classifier recognizes empathy equator');
+      truthy(classifyWorldview(new THREE.Vector3(0.5, 0.5, 0)).label === 'Calibrated Empathy', 'worldview classifier recognizes higher empathy lane');
       truthy(worldviewColorForPoint(new THREE.Vector3(0, -1, 0)) === '#dc2626', 'worldview color reaches collapse red');
       truthy(worldviewColorForPoint(new THREE.Vector3(1, 0, 0)) === '#6b7280', 'worldview color reaches equator gray');
       truthy(worldviewColorForPoint(new THREE.Vector3(0, 1, 0)) === '#2563eb', 'worldview color reaches peak blue');
@@ -1946,10 +2280,10 @@
       }
 
       if (state.draggingPoint) {
-        const hit = intersectSurface(e);
-        if (hit) applyHitToPoint(hit);
+        applyPointerToPoint(e);
         state.lastX = e.clientX;
         state.lastY = e.clientY;
+        e.preventDefault();
         return;
       }
 
